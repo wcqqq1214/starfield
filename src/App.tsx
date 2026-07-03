@@ -11,161 +11,13 @@ import {
 } from 'lucide-react'
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { StarfieldExperience } from './components/StarfieldExperience'
+import { CITY_LOCATIONS, DEFAULT_CITY } from './data/cities'
 import { computeHorizonStars, formatUtc } from './lib/astro'
 import {
   loadD3CelestialCatalog,
   type CelestialCatalog,
 } from './lib/celestialCatalog'
 import type { ExperienceStage, LocationTarget } from './types'
-
-const DEFAULT_LOCATION: LocationTarget = {
-  name: 'Shanghai',
-  lat: 31.2304,
-  lon: 121.4737,
-  note: 'China',
-}
-
-const CITY_LOCATIONS: readonly LocationTarget[] = [
-  DEFAULT_LOCATION,
-  {
-    name: 'Beijing',
-    lat: 39.9042,
-    lon: 116.4074,
-    note: 'China',
-  },
-  {
-    name: 'Tokyo',
-    lat: 35.6762,
-    lon: 139.6503,
-    note: 'Japan',
-  },
-  {
-    name: 'Seoul',
-    lat: 37.5665,
-    lon: 126.978,
-    note: 'South Korea',
-  },
-  {
-    name: 'Singapore',
-    lat: 1.3521,
-    lon: 103.8198,
-    note: 'Singapore',
-  },
-  {
-    name: 'Bangkok',
-    lat: 13.7563,
-    lon: 100.5018,
-    note: 'Thailand',
-  },
-  {
-    name: 'Jakarta',
-    lat: -6.2088,
-    lon: 106.8456,
-    note: 'Indonesia',
-  },
-  {
-    name: 'Mumbai',
-    lat: 19.076,
-    lon: 72.8777,
-    note: 'India',
-  },
-  {
-    name: 'Dubai',
-    lat: 25.2048,
-    lon: 55.2708,
-    note: 'United Arab Emirates',
-  },
-  {
-    name: 'Istanbul',
-    lat: 41.0082,
-    lon: 28.9784,
-    note: 'Turkey',
-  },
-  {
-    name: 'London',
-    lat: 51.5072,
-    lon: -0.1276,
-    note: 'United Kingdom',
-  },
-  {
-    name: 'Paris',
-    lat: 48.8566,
-    lon: 2.3522,
-    note: 'France',
-  },
-  {
-    name: 'Berlin',
-    lat: 52.52,
-    lon: 13.405,
-    note: 'Germany',
-  },
-  {
-    name: 'Moscow',
-    lat: 55.7558,
-    lon: 37.6173,
-    note: 'Russia',
-  },
-  {
-    name: 'New York',
-    lat: 40.7128,
-    lon: -74.006,
-    note: 'United States',
-  },
-  {
-    name: 'Los Angeles',
-    lat: 34.0522,
-    lon: -118.2437,
-    note: 'United States',
-  },
-  {
-    name: 'Chicago',
-    lat: 41.8781,
-    lon: -87.6298,
-    note: 'United States',
-  },
-  {
-    name: 'Toronto',
-    lat: 43.6532,
-    lon: -79.3832,
-    note: 'Canada',
-  },
-  {
-    name: 'Mexico City',
-    lat: 19.4326,
-    lon: -99.1332,
-    note: 'Mexico',
-  },
-  {
-    name: 'Sao Paulo',
-    lat: -23.5558,
-    lon: -46.6396,
-    note: 'Brazil',
-  },
-  {
-    name: 'Buenos Aires',
-    lat: -34.6037,
-    lon: -58.3816,
-    note: 'Argentina',
-  },
-  {
-    name: 'Cairo',
-    lat: 30.0444,
-    lon: 31.2357,
-    note: 'Egypt',
-  },
-  {
-    name: 'Cape Town',
-    lat: -33.9249,
-    lon: 18.4241,
-    note: 'South Africa',
-  },
-  {
-    name: 'Sydney',
-    lat: -33.8688,
-    lon: 151.2093,
-    note: 'Australia',
-  },
-]
 
 const STAGE_COPY: Record<ExperienceStage, string> = {
   EARTH: 'Earth orbit',
@@ -174,10 +26,10 @@ const STAGE_COPY: Record<ExperienceStage, string> = {
 
 function App() {
   const [stage, setStage] = useState<ExperienceStage>('EARTH')
-  const [target, setTarget] = useState<LocationTarget>(DEFAULT_LOCATION)
+  const [target, setTarget] = useState<LocationTarget>(DEFAULT_CITY)
   const [form, setForm] = useState({
-    lat: DEFAULT_LOCATION.lat.toString(),
-    lon: DEFAULT_LOCATION.lon.toString(),
+    lat: DEFAULT_CITY.lat.toString(),
+    lon: DEFAULT_CITY.lon.toString(),
   })
   const [citySearch, setCitySearch] = useState('')
   const [citySearchOpen, setCitySearchOpen] = useState(false)
@@ -237,7 +89,7 @@ function App() {
     }
 
     return CITY_LOCATIONS.filter((location) =>
-      matchesCityWordPrefix(location.name, query),
+      matchesWordPrefix(location.name, query),
     ).slice(0, 5)
   }, [citySearch])
 
@@ -580,8 +432,8 @@ function Metric({ icon, label, value }: MetricProps) {
   )
 }
 
-function matchesCityWordPrefix(cityName: string, query: string): boolean {
-  const normalizedName = normalizeSearchText(cityName)
+function matchesWordPrefix(value: string, query: string): boolean {
+  const normalizedName = normalizeSearchText(value)
 
   if (normalizedName.startsWith(query)) {
     return true
@@ -593,7 +445,7 @@ function matchesCityWordPrefix(cityName: string, query: string): boolean {
 }
 
 function normalizeSearchText(value: string): string {
-  return value.trim().toLowerCase().replace(/\s+/g, ' ')
+  return value.trim().toLowerCase().replace(/['’]/g, '').replace(/\s+/g, ' ')
 }
 
 function clampNumber(value: number, min: number, max: number): number {

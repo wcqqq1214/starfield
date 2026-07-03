@@ -34,6 +34,10 @@ hemisphere onto a flat planisphere.
   BSD-3-Clause. The copied files live in `public/vendor/d3-celestial/`,
   including the upstream `LICENSE`. Constellation and Milky Way line rendering is
   intentionally disabled for the current clean-sky prototype.
+- City search uses a curated local config in `src/data/cities.ts`. Coordinates
+  are derived from the [GeoNames](https://www.geonames.org/) city dump
+  (Creative Commons Attribution) and trimmed to Chinese provincial capitals and
+  above plus major global cities; the full GeoNames dump is not vendored.
 - [typpo/spacekit](https://github.com/typpo/spacekit) is a useful MIT-licensed
   Three.js reference for larger-scale solar-system and particle visualization,
   but it is not imported into this app.
