@@ -23,6 +23,12 @@ latitude, longitude, and current UTC time.
 
 ## Open Source Data And References
 
+- Earth texture is vendored from
+  [NASA SVS item 3615](https://svs.gsfc.nasa.gov/3615/). The copied texture
+  lives in `public/vendor/nasa/flat_earth03.jpg`. Credit:
+  NASA/Goddard Space Flight Center Scientific Visualization Studio; Blue Marble
+  Next Generation data courtesy of Reto Stockli (NASA/GSFC) and NASA Earth
+  Observatory.
 - Runtime star, constellation, and Milky Way data is vendored from
   [ofrohn/d3-celestial](https://github.com/ofrohn/d3-celestial), licensed under
   BSD-3-Clause. The copied files live in `public/vendor/d3-celestial/`, including

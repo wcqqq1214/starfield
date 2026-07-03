@@ -1,16 +1,20 @@
-import { Billboard, Line, OrbitControls, Text } from '@react-three/drei'
+import {
+  Billboard,
+  Line,
+  OrbitControls,
+  Text,
+  useTexture,
+} from '@react-three/drei'
 import { Canvas, type ThreeEvent, useFrame, useThree } from '@react-three/fiber'
 import gsap from 'gsap'
 import {
   AdditiveBlending,
   BackSide,
-  CanvasTexture,
   Color,
   DoubleSide,
   Group,
   MathUtils,
   Matrix4,
-  Mesh,
   Quaternion,
   SRGBColorSpace,
   Vector3,
@@ -260,9 +264,7 @@ type EarthProps = {
 }
 
 function Earth({ activeLocation, groupRef, onPick, stage }: EarthProps) {
-  const earthTexture = useMemo(() => createEarthTexture(), [])
-  const cloudTexture = useMemo(() => createCloudTexture(), [])
-  const cloudRef = useRef<Mesh | null>(null)
+  const earthTexture = useTexture('/vendor/nasa/flat_earth03.jpg')
   const markerPosition = useMemo(() => {
     if (!activeLocation) {
       return null
@@ -275,11 +277,13 @@ function Earth({ activeLocation, groupRef, onPick, stage }: EarthProps) {
     if (stage === 'EARTH' && groupRef.current) {
       groupRef.current.rotation.y += delta * 0.05
     }
-
-    if (cloudRef.current) {
-      cloudRef.current.rotation.y += delta * 0.014
-    }
   })
+
+  useEffect(() => {
+    earthTexture.colorSpace = SRGBColorSpace
+    earthTexture.anisotropy = 8
+    earthTexture.needsUpdate = true
+  }, [earthTexture])
 
   const handleClick = (event: ThreeEvent<MouseEvent>) => {
     event.stopPropagation()
@@ -306,20 +310,11 @@ function Earth({ activeLocation, groupRef, onPick, stage }: EarthProps) {
         <sphereGeometry args={[EARTH_RADIUS, 96, 96]} />
         <meshStandardMaterial
           color="#f6fbff"
-          emissive="#07182a"
-          emissiveIntensity={0.48}
+          emissive="#051422"
+          emissiveIntensity={0.18}
           map={earthTexture}
-          metalness={0.05}
-          roughness={0.78}
-        />
-      </mesh>
-      <mesh ref={cloudRef} scale={1.012}>
-        <sphereGeometry args={[EARTH_RADIUS, 96, 96]} />
-        <meshStandardMaterial
-          alphaMap={cloudTexture}
-          color="#ffffff"
-          opacity={0.23}
-          transparent
+          metalness={0.02}
+          roughness={0.82}
         />
       </mesh>
       <mesh scale={1.065}>
@@ -809,162 +804,6 @@ function quadraticBezier(
     .multiplyScalar(inverse * inverse)
     .addScaledVector(control, 2 * inverse * t)
     .addScaledVector(end, t * t)
-}
-
-function createEarthTexture(): CanvasTexture {
-  const canvas = document.createElement('canvas')
-  canvas.width = 1024
-  canvas.height = 512
-  const context = canvas.getContext('2d')
-
-  if (!context) {
-    return new CanvasTexture(canvas)
-  }
-
-  const ocean = context.createLinearGradient(0, 0, 0, canvas.height)
-  ocean.addColorStop(0, '#123f75')
-  ocean.addColorStop(0.46, '#0d6e93')
-  ocean.addColorStop(1, '#071f48')
-  context.fillStyle = ocean
-  context.fillRect(0, 0, canvas.width, canvas.height)
-
-  drawLand(context, canvas, [
-    [-168, 70],
-    [-126, 72],
-    [-95, 52],
-    [-70, 45],
-    [-55, 20],
-    [-88, 8],
-    [-118, 22],
-    [-138, 45],
-  ])
-  drawLand(context, canvas, [
-    [-82, 12],
-    [-45, -4],
-    [-36, -26],
-    [-58, -54],
-    [-72, -40],
-    [-78, -12],
-  ])
-  drawLand(context, canvas, [
-    [-18, 36],
-    [12, 58],
-    [72, 70],
-    [136, 52],
-    [146, 24],
-    [105, 7],
-    [70, 23],
-    [36, 8],
-    [9, 28],
-  ])
-  drawLand(context, canvas, [
-    [-17, 30],
-    [35, 33],
-    [50, 8],
-    [31, -34],
-    [8, -36],
-    [-7, -5],
-  ])
-  drawLand(context, canvas, [
-    [111, -11],
-    [154, -18],
-    [148, -41],
-    [114, -35],
-  ])
-  drawLand(context, canvas, [
-    [-180, -62],
-    [-90, -70],
-    [0, -66],
-    [90, -70],
-    [180, -62],
-    [180, -88],
-    [-180, -88],
-  ])
-
-  context.globalAlpha = 0.18
-  context.fillStyle = '#b8f1ff'
-
-  for (let y = 24; y < canvas.height; y += 52) {
-    context.fillRect(0, y, canvas.width, 1)
-  }
-
-  context.globalAlpha = 1
-
-  const texture = new CanvasTexture(canvas)
-  texture.colorSpace = SRGBColorSpace
-  texture.needsUpdate = true
-
-  return texture
-}
-
-function createCloudTexture(): CanvasTexture {
-  const canvas = document.createElement('canvas')
-  canvas.width = 1024
-  canvas.height = 512
-  const context = canvas.getContext('2d')
-
-  if (!context) {
-    return new CanvasTexture(canvas)
-  }
-
-  const random = mulberry32(17)
-  context.fillStyle = '#000000'
-  context.fillRect(0, 0, canvas.width, canvas.height)
-  context.globalCompositeOperation = 'lighter'
-
-  for (let i = 0; i < 180; i += 1) {
-    const x = random() * canvas.width
-    const y = 70 + random() * (canvas.height - 140)
-    const width = 40 + random() * 180
-    const height = 5 + random() * 20
-    const alpha = 0.18 + random() * 0.28
-
-    context.fillStyle = `rgba(255, 255, 255, ${alpha})`
-    context.beginPath()
-    context.ellipse(x, y, width, height, random() * Math.PI, 0, Math.PI * 2)
-    context.fill()
-  }
-
-  const texture = new CanvasTexture(canvas)
-  texture.colorSpace = SRGBColorSpace
-  texture.needsUpdate = true
-
-  return texture
-}
-
-function drawLand(
-  context: CanvasRenderingContext2D,
-  canvas: HTMLCanvasElement,
-  points: Array<[number, number]>,
-) {
-  const [firstLon, firstLat] = points[0] ?? [0, 0]
-  const [firstX, firstY] = projectToCanvas(canvas, firstLon, firstLat)
-
-  context.beginPath()
-  context.moveTo(firstX, firstY)
-
-  for (const [lon, lat] of points.slice(1)) {
-    const [x, y] = projectToCanvas(canvas, lon, lat)
-    context.lineTo(x, y)
-  }
-
-  context.closePath()
-  context.fillStyle = '#39896f'
-  context.fill()
-  context.strokeStyle = '#9bd6a7'
-  context.lineWidth = 2
-  context.stroke()
-}
-
-function projectToCanvas(
-  canvas: HTMLCanvasElement,
-  lon: number,
-  lat: number,
-): [number, number] {
-  return [
-    ((lon + 180) / 360) * canvas.width,
-    ((90 - lat) / 180) * canvas.height,
-  ]
 }
 
 function mulberry32(seed: number): () => number {
