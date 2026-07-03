@@ -1,4 +1,4 @@
-export type ExperienceStage = 'EARTH' | 'TRANSITIONING' | 'FLIP' | 'SKY'
+export type ExperienceStage = 'EARTH' | 'SKY'
 
 export type LocationTarget = {
   name: string

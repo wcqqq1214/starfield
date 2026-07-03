@@ -6,7 +6,6 @@ import {
   useTexture,
 } from '@react-three/drei'
 import { Canvas, type ThreeEvent, useFrame, useThree } from '@react-three/fiber'
-import gsap from 'gsap'
 import {
   AdditiveBlending,
   BackSide,
@@ -14,7 +13,6 @@ import {
   DoubleSide,
   Group,
   MathUtils,
-  Matrix4,
   Quaternion,
   SRGBColorSpace,
   Vector3,
@@ -48,7 +46,7 @@ type StarfieldExperienceProps = {
   catalog: CelestialCatalog | null
   stage: ExperienceStage
   target: LocationTarget
-  diveSignal: number
+  skySignal: number
   utcDate: Date
   onStageChange: (stage: ExperienceStage) => void
   onTargetChange: (target: LocationTarget) => void
@@ -56,13 +54,12 @@ type StarfieldExperienceProps = {
 
 const CAMERA_HOME = new Vector3(0, 1.55, 5.15)
 const SKY_RADIUS = 13
-const MATRIX_SCRATCH = new Matrix4()
 
 export function StarfieldExperience({
   catalog,
   stage,
   target,
-  diveSignal,
+  skySignal,
   utcDate,
   onStageChange,
   onTargetChange,
@@ -80,9 +77,9 @@ export function StarfieldExperience({
       <directionalLight color="#5fb0ff" intensity={1.2} position={[-3, 1, -4]} />
       <SceneContent
         catalog={catalog}
-        diveSignal={diveSignal}
         onStageChange={onStageChange}
         onTargetChange={onTargetChange}
+        skySignal={skySignal}
         stage={stage}
         target={target}
         utcDate={utcDate}
@@ -97,89 +94,30 @@ function SceneContent({
   catalog,
   stage,
   target,
-  diveSignal,
+  skySignal,
   utcDate,
   onStageChange,
   onTargetChange,
 }: SceneContentProps) {
   const { camera, gl } = useThree()
   const earthGroupRef = useRef<Group | null>(null)
-  const transitionRef = useRef<gsap.core.Timeline | null>(null)
-  const lastDiveSignalRef = useRef(0)
+  const lastSkySignalRef = useRef(0)
   const [activeLocation, setActiveLocation] = useState<ActiveLocation | null>(
     null,
   )
 
-  const beginDive = useCallback(
+  const showLocalSky = useCallback(
     (nextTarget: LocationTarget, rotationY: number) => {
       if (stage !== 'EARTH') {
         return
       }
 
-      transitionRef.current?.kill()
-
       const active: ActiveLocation = { ...nextTarget, rotationY }
-      const frame = getSurfaceFrame(active.lat, active.lon, active.rotationY)
-      const start = camera.position.clone()
-      const end = frame.position.clone().addScaledVector(frame.up, 0.055)
-      const control = start
-        .clone()
-        .lerp(end, 0.58)
-        .addScaledVector(frame.up, 1.55)
-        .addScaledVector(frame.east, 0.52)
-      const pathPosition = new Vector3()
-      const lookTarget = new Vector3()
-      const lookDown = makeCameraQuaternion(
-        end,
-        new Vector3(0, 0, 0),
-        frame.north,
-      )
-      const lookUp = makeCameraQuaternion(
-        end,
-        end.clone().add(frame.up),
-        frame.north,
-      )
-      const flight = { descent: 0, flip: 0 }
 
       setActiveLocation(active)
       onTargetChange(nextTarget)
-      onStageChange('TRANSITIONING')
-
-      transitionRef.current = gsap
-        .timeline({
-          defaults: { overwrite: true },
-          onComplete: () => {
-            camera.position.copy(end)
-            camera.quaternion.copy(lookUp)
-            onStageChange('SKY')
-          },
-        })
-        .to(flight, {
-          descent: 1,
-          duration: 3.2,
-          ease: 'power4.out',
-          onUpdate: () => {
-            quadraticBezier(pathPosition, start, control, end, flight.descent)
-            camera.position.copy(pathPosition)
-            lookTarget.lerpVectors(
-              new Vector3(0, 0, 0),
-              frame.position,
-              MathUtils.smoothstep(flight.descent, 0.46, 1),
-            )
-            camera.up.set(0, 1, 0)
-            camera.lookAt(lookTarget)
-          },
-        })
-        .call(() => onStageChange('FLIP'))
-        .to(flight, {
-          flip: 1,
-          duration: 1.15,
-          ease: 'expo.inOut',
-          onUpdate: () => {
-            camera.position.copy(end)
-            camera.quaternion.slerpQuaternions(lookDown, lookUp, flight.flip)
-          },
-        })
+      applySkyCamera(camera, active, 0, MathUtils.degToRad(78))
+      onStageChange('SKY')
     },
     [camera, onStageChange, onTargetChange, stage],
   )
@@ -187,29 +125,28 @@ function SceneContent({
   const handleGlobePick = useCallback(
     (pickedTarget: LocationTarget) => {
       const rotationY = earthGroupRef.current?.rotation.y ?? 0
-      beginDive(pickedTarget, rotationY)
+      showLocalSky(pickedTarget, rotationY)
     },
-    [beginDive],
+    [showLocalSky],
   )
 
   useEffect(() => {
-    if (diveSignal === lastDiveSignalRef.current) {
+    if (skySignal === lastSkySignalRef.current) {
       return
     }
 
-    lastDiveSignalRef.current = diveSignal
+    lastSkySignalRef.current = skySignal
 
-    if (diveSignal > 0) {
-      beginDive(target, earthGroupRef.current?.rotation.y ?? 0)
+    if (skySignal > 0) {
+      showLocalSky(target, earthGroupRef.current?.rotation.y ?? 0)
     }
-  }, [beginDive, diveSignal, target])
+  }, [showLocalSky, skySignal, target])
 
   useEffect(() => {
     if (stage !== 'EARTH') {
       return
     }
 
-    transitionRef.current?.kill()
     setActiveLocation(null)
     camera.position.copy(CAMERA_HOME)
     camera.up.set(0, 1, 0)
@@ -778,32 +715,6 @@ function applySkyCamera(
   camera.position.copy(position)
   camera.up.copy(safeUp)
   camera.lookAt(target)
-}
-
-function makeCameraQuaternion(
-  position: Vector3,
-  target: Vector3,
-  up: Vector3,
-): Quaternion {
-  return new Quaternion().setFromRotationMatrix(
-    MATRIX_SCRATCH.lookAt(position, target, up),
-  )
-}
-
-function quadraticBezier(
-  output: Vector3,
-  start: Vector3,
-  control: Vector3,
-  end: Vector3,
-  t: number,
-): Vector3 {
-  const inverse = 1 - t
-
-  return output
-    .copy(start)
-    .multiplyScalar(inverse * inverse)
-    .addScaledVector(control, 2 * inverse * t)
-    .addScaledVector(end, t * t)
 }
 
 function mulberry32(seed: number): () => number {

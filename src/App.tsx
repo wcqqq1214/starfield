@@ -47,8 +47,6 @@ const LOCATIONS: readonly LocationTarget[] = [
 
 const STAGE_COPY: Record<ExperienceStage, string> = {
   EARTH: 'Earth orbit',
-  TRANSITIONING: 'Descent burn',
-  FLIP: '180 degree flip',
   SKY: 'Local sky',
 }
 
@@ -59,7 +57,7 @@ function App() {
     lat: DEFAULT_LOCATION.lat.toString(),
     lon: DEFAULT_LOCATION.lon.toString(),
   })
-  const [diveSignal, setDiveSignal] = useState(0)
+  const [skySignal, setSkySignal] = useState(0)
   const [utcDate, setUtcDate] = useState(() => new Date())
   const [catalog, setCatalog] = useState<CelestialCatalog | null>(null)
   const [catalogError, setCatalogError] = useState<string | null>(null)
@@ -131,14 +129,14 @@ function App() {
     return nextTarget
   }
 
-  const startDive = () => {
+  const showSky = () => {
     if (stage !== 'EARTH') {
       return
     }
 
     const nextTarget = applyManualLocation()
     setTarget(nextTarget)
-    setDiveSignal((value) => value + 1)
+    setSkySignal((value) => value + 1)
   }
 
   const resetToEarth = () => {
@@ -157,9 +155,9 @@ function App() {
     <main className="relative h-dvh w-dvw overflow-hidden bg-[#02050c] text-slate-100">
       <StarfieldExperience
         catalog={catalog}
-        diveSignal={diveSignal}
         onStageChange={setStage}
         onTargetChange={handleTargetChange}
+        skySignal={skySignal}
         stage={stage}
         target={target}
         utcDate={skyDate}
@@ -235,11 +233,11 @@ function App() {
             <button
               className="inline-flex h-11 flex-1 items-center justify-center gap-2 rounded-md bg-cyan-300 px-4 text-sm font-semibold text-slate-950 transition hover:bg-cyan-200 disabled:cursor-not-allowed disabled:bg-slate-500 disabled:text-slate-900"
               disabled={stage !== 'EARTH'}
-              onClick={startDive}
+              onClick={showSky}
               type="button"
             >
               <LocateFixed className="size-4" />
-              Dive
+              Show sky
             </button>
             <button
               aria-label="Reset to Earth"
