@@ -1,10 +1,12 @@
 import { motion } from 'framer-motion'
 import {
+  ChevronDown,
+  ChevronUp,
   Compass,
-  Crosshair,
   Globe2,
   LocateFixed,
   RotateCcw,
+  Search,
   Sparkles,
 } from 'lucide-react'
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
@@ -17,31 +19,151 @@ import {
 import type { ExperienceStage, LocationTarget } from './types'
 
 const DEFAULT_LOCATION: LocationTarget = {
-  name: 'Mauna Kea',
-  lat: 19.8206,
-  lon: -155.4681,
-  note: 'High-altitude Pacific observatory',
+  name: 'Shanghai',
+  lat: 31.2304,
+  lon: 121.4737,
+  note: 'China',
 }
 
-const LOCATIONS: readonly LocationTarget[] = [
+const CITY_LOCATIONS: readonly LocationTarget[] = [
   DEFAULT_LOCATION,
   {
-    name: 'Atacama',
-    lat: -24.627,
-    lon: -70.404,
-    note: 'Southern desert sky window',
+    name: 'Beijing',
+    lat: 39.9042,
+    lon: 116.4074,
+    note: 'China',
   },
   {
-    name: 'Shanghai',
-    lat: 31.2304,
-    lon: 121.4737,
-    note: 'Urban East Asia reference',
+    name: 'Tokyo',
+    lat: 35.6762,
+    lon: 139.6503,
+    note: 'Japan',
   },
   {
-    name: 'Reykjavik',
-    lat: 64.1466,
-    lon: -21.9426,
-    note: 'High northern latitude',
+    name: 'Seoul',
+    lat: 37.5665,
+    lon: 126.978,
+    note: 'South Korea',
+  },
+  {
+    name: 'Singapore',
+    lat: 1.3521,
+    lon: 103.8198,
+    note: 'Singapore',
+  },
+  {
+    name: 'Bangkok',
+    lat: 13.7563,
+    lon: 100.5018,
+    note: 'Thailand',
+  },
+  {
+    name: 'Jakarta',
+    lat: -6.2088,
+    lon: 106.8456,
+    note: 'Indonesia',
+  },
+  {
+    name: 'Mumbai',
+    lat: 19.076,
+    lon: 72.8777,
+    note: 'India',
+  },
+  {
+    name: 'Dubai',
+    lat: 25.2048,
+    lon: 55.2708,
+    note: 'United Arab Emirates',
+  },
+  {
+    name: 'Istanbul',
+    lat: 41.0082,
+    lon: 28.9784,
+    note: 'Turkey',
+  },
+  {
+    name: 'London',
+    lat: 51.5072,
+    lon: -0.1276,
+    note: 'United Kingdom',
+  },
+  {
+    name: 'Paris',
+    lat: 48.8566,
+    lon: 2.3522,
+    note: 'France',
+  },
+  {
+    name: 'Berlin',
+    lat: 52.52,
+    lon: 13.405,
+    note: 'Germany',
+  },
+  {
+    name: 'Moscow',
+    lat: 55.7558,
+    lon: 37.6173,
+    note: 'Russia',
+  },
+  {
+    name: 'New York',
+    lat: 40.7128,
+    lon: -74.006,
+    note: 'United States',
+  },
+  {
+    name: 'Los Angeles',
+    lat: 34.0522,
+    lon: -118.2437,
+    note: 'United States',
+  },
+  {
+    name: 'Chicago',
+    lat: 41.8781,
+    lon: -87.6298,
+    note: 'United States',
+  },
+  {
+    name: 'Toronto',
+    lat: 43.6532,
+    lon: -79.3832,
+    note: 'Canada',
+  },
+  {
+    name: 'Mexico City',
+    lat: 19.4326,
+    lon: -99.1332,
+    note: 'Mexico',
+  },
+  {
+    name: 'Sao Paulo',
+    lat: -23.5558,
+    lon: -46.6396,
+    note: 'Brazil',
+  },
+  {
+    name: 'Buenos Aires',
+    lat: -34.6037,
+    lon: -58.3816,
+    note: 'Argentina',
+  },
+  {
+    name: 'Cairo',
+    lat: 30.0444,
+    lon: 31.2357,
+    note: 'Egypt',
+  },
+  {
+    name: 'Cape Town',
+    lat: -33.9249,
+    lon: 18.4241,
+    note: 'South Africa',
+  },
+  {
+    name: 'Sydney',
+    lat: -33.8688,
+    lon: 151.2093,
+    note: 'Australia',
   },
 ]
 
@@ -57,6 +179,8 @@ function App() {
     lat: DEFAULT_LOCATION.lat.toString(),
     lon: DEFAULT_LOCATION.lon.toString(),
   })
+  const [citySearch, setCitySearch] = useState('')
+  const [computedOpen, setComputedOpen] = useState(false)
   const [skySignal, setSkySignal] = useState(0)
   const [utcDate, setUtcDate] = useState(() => new Date())
   const [catalog, setCatalog] = useState<CelestialCatalog | null>(null)
@@ -103,23 +227,40 @@ function App() {
     [catalog, skyDate, target],
   )
 
+  const filteredLocations = useMemo(() => {
+    const query = citySearch.trim().toLowerCase()
+
+    if (!query) {
+      return CITY_LOCATIONS.slice(0, 8)
+    }
+
+    return CITY_LOCATIONS.filter((location) =>
+      `${location.name} ${location.note}`.toLowerCase().includes(query),
+    ).slice(0, 8)
+  }, [citySearch])
+
   const selectLocation = (location: LocationTarget) => {
     setTarget(location)
     setForm({
-      lat: location.lat.toString(),
-      lon: location.lon.toString(),
+      lat: location.lat.toFixed(4),
+      lon: location.lon.toFixed(4),
     })
+    setCitySearch(location.name)
   }
 
-  const applyManualLocation = (): LocationTarget => {
+  const resolveFormTarget = (): LocationTarget => {
     const lat = clampNumber(Number.parseFloat(form.lat), -90, 90)
     const lon = normalizeLongitude(Number.parseFloat(form.lon))
-    const nextTarget: LocationTarget = {
-      name: 'Manual coordinates',
-      lat,
-      lon,
-      note: 'Entered from the coordinate panel',
-    }
+    const keepsSelectedLocation =
+      Math.abs(lat - target.lat) < 0.0001 && Math.abs(lon - target.lon) < 0.0001
+    const nextTarget: LocationTarget = keepsSelectedLocation
+      ? { ...target, lat, lon }
+      : {
+          name: 'Manual coordinates',
+          lat,
+          lon,
+          note: 'Entered from the coordinate panel',
+        }
 
     setTarget(nextTarget)
     setForm({
@@ -135,8 +276,7 @@ function App() {
       return
     }
 
-    const nextTarget = applyManualLocation()
-    setTarget(nextTarget)
+    resolveFormTarget()
     setSkySignal((value) => value + 1)
   }
 
@@ -150,6 +290,11 @@ function App() {
       lat: nextTarget.lat.toFixed(4),
       lon: nextTarget.lon.toFixed(4),
     })
+    setCitySearch(
+      CITY_LOCATIONS.some((location) => location.name === nextTarget.name)
+        ? nextTarget.name
+        : '',
+    )
   }
 
   return (
@@ -186,21 +331,52 @@ function App() {
             </span>
           </div>
 
-          <div className="mt-5 grid grid-cols-2 gap-2">
-            {LOCATIONS.map((location) => (
-              <button
-                className="rounded-md border border-white/10 bg-white/[0.06] px-3 py-2 text-left text-sm text-slate-100 transition hover:border-cyan-300/45 hover:bg-cyan-300/10 disabled:cursor-not-allowed disabled:opacity-45"
-                disabled={stage !== 'EARTH'}
-                key={location.name}
-                onClick={() => selectLocation(location)}
-                type="button"
-              >
-                <span className="block font-medium">{location.name}</span>
-                <span className="mt-1 block text-xs text-slate-400">
-                  {location.note}
-                </span>
-              </button>
-            ))}
+          <div className="mt-5">
+            <label className="text-xs font-medium uppercase text-slate-400">
+              City
+              <div className="mt-1 flex h-10 items-center gap-2 rounded-md border border-white/10 bg-black/25 px-3 transition focus-within:border-cyan-300/60">
+                <Search className="size-4 shrink-0 text-slate-500" />
+                <input
+                  className="h-full min-w-0 flex-1 bg-transparent text-sm text-white outline-none placeholder:text-slate-500"
+                  disabled={stage !== 'EARTH'}
+                  onChange={(event) => setCitySearch(event.target.value)}
+                  placeholder="Search city"
+                  value={citySearch}
+                />
+              </div>
+            </label>
+
+            <div className="mt-2 max-h-52 space-y-1 overflow-y-auto pr-1">
+              {filteredLocations.map((location) => (
+                <button
+                  className="grid w-full grid-cols-[1fr_auto] items-center gap-3 rounded-md border border-white/10 bg-white/[0.045] px-3 py-2 text-left text-sm text-slate-100 transition hover:border-cyan-300/45 hover:bg-cyan-300/10 disabled:cursor-not-allowed disabled:opacity-45"
+                  disabled={stage !== 'EARTH'}
+                  key={location.name}
+                  onClick={() => selectLocation(location)}
+                  type="button"
+                >
+                  <span className="min-w-0">
+                    <span className="block truncate font-medium">
+                      {location.name}
+                    </span>
+                    <span className="mt-0.5 block truncate text-xs text-slate-400">
+                      {location.note}
+                    </span>
+                  </span>
+                  <span className="text-right text-xs text-cyan-100">
+                    <span className="block">{location.lat.toFixed(1)} deg</span>
+                    <span className="block text-slate-400">
+                      {location.lon.toFixed(1)} deg
+                    </span>
+                  </span>
+                </button>
+              ))}
+              {filteredLocations.length === 0 ? (
+                <div className="rounded-md border border-white/8 bg-white/[0.045] px-3 py-2 text-sm text-slate-400">
+                  No city found
+                </div>
+              ) : null}
+            </div>
           </div>
 
           <div className="mt-4 grid grid-cols-2 gap-3">
@@ -253,16 +429,11 @@ function App() {
 
         <motion.div
           animate={{ opacity: 1, y: 0 }}
-          className="pointer-events-auto mx-auto hidden w-full max-w-xl self-start rounded-lg border border-white/10 bg-[#07111f]/54 px-4 py-3 shadow-2xl shadow-black/25 backdrop-blur-xl md:block"
+          className="pointer-events-auto mx-auto hidden w-full max-w-md self-start rounded-lg border border-white/10 bg-[#07111f]/54 px-4 py-3 shadow-2xl shadow-black/25 backdrop-blur-xl md:block"
           initial={{ opacity: 0, y: -14 }}
           transition={{ delay: 0.1, duration: 0.45, ease: 'easeOut' }}
         >
-          <div className="grid grid-cols-3 gap-3 text-sm">
-            <Metric
-              icon={<Crosshair className="size-4" />}
-              label="Target"
-              value={target.name}
-            />
+          <div className="grid grid-cols-2 gap-3 text-sm">
             <Metric
               icon={<Compass className="size-4" />}
               label="Coordinates"
@@ -282,50 +453,65 @@ function App() {
           initial={{ opacity: 0, x: 16 }}
           transition={{ delay: 0.16, duration: 0.45, ease: 'easeOut' }}
         >
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <div className="text-xs font-medium uppercase text-slate-400">
+          <button
+            aria-expanded={computedOpen}
+            className="flex w-full items-center justify-between gap-3 text-left"
+            onClick={() => setComputedOpen((value) => !value)}
+            type="button"
+          >
+            <span className="min-w-0">
+              <span className="block text-xs font-medium uppercase text-slate-400">
                 Computed sky
-              </div>
-              <h2 className="mt-1 text-lg font-semibold tracking-normal text-white">
-                Visible bright stars
-              </h2>
+              </span>
+              <span className="mt-1 block truncate text-lg font-semibold tracking-normal text-white">
+                {computedOpen ? 'Visible bright stars' : `${visibleStars.length} bright stars`}
+              </span>
+            </span>
+            <span className="inline-flex items-center gap-2 text-cyan-200">
+              <Sparkles className="size-5" />
+              {computedOpen ? (
+                <ChevronUp className="size-4" />
+              ) : (
+                <ChevronDown className="size-4" />
+              )}
+            </span>
+          </button>
+
+          {computedOpen ? (
+            <div className="mt-4 space-y-2">
+              {catalogError ? (
+                <div className="rounded-md border border-red-300/20 bg-red-300/10 px-3 py-2 text-sm text-red-100">
+                  {catalogError}
+                </div>
+              ) : null}
+              {!catalog && !catalogError ? (
+                <div className="rounded-md border border-white/8 bg-white/[0.045] px-3 py-2 text-sm text-slate-300">
+                  Loading d3-celestial catalog
+                </div>
+              ) : null}
+              {visibleStars.map((star) => (
+                <div
+                  className="grid grid-cols-[1fr_auto] gap-2 rounded-md border border-white/8 bg-white/[0.045] px-3 py-2"
+                  key={star.id}
+                >
+                  <div>
+                    <div className="text-sm font-medium text-white">
+                      {star.displayName}
+                    </div>
+                    <div className="text-xs text-slate-400">
+                      {star.constellation}
+                    </div>
+                  </div>
+                  <div className="text-right text-xs text-cyan-100">
+                    <div>{star.altitude.toFixed(1)} deg alt</div>
+                    <div className="text-slate-400">
+                      {star.azimuth.toFixed(0)} deg az
+                    </div>
+                  </div>
+                </div>
+              ))}
             </div>
-            <Sparkles className="size-5 text-cyan-200" />
-          </div>
-          <div className="mt-4 space-y-2">
-            {catalogError ? (
-              <div className="rounded-md border border-red-300/20 bg-red-300/10 px-3 py-2 text-sm text-red-100">
-                {catalogError}
-              </div>
-            ) : null}
-            {!catalog && !catalogError ? (
-              <div className="rounded-md border border-white/8 bg-white/[0.045] px-3 py-2 text-sm text-slate-300">
-                Loading d3-celestial catalog
-              </div>
-            ) : null}
-            {visibleStars.map((star) => (
-              <div
-                className="grid grid-cols-[1fr_auto] gap-2 rounded-md border border-white/8 bg-white/[0.045] px-3 py-2"
-                key={star.id}
-              >
-                <div>
-                  <div className="text-sm font-medium text-white">
-                    {star.displayName}
-                  </div>
-                  <div className="text-xs text-slate-400">
-                    {star.constellation}
-                  </div>
-                </div>
-                <div className="text-right text-xs text-cyan-100">
-                  <div>{star.altitude.toFixed(1)} deg alt</div>
-                  <div className="text-slate-400">
-                    {star.azimuth.toFixed(0)} deg az
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
+          ) : null}
         </motion.aside>
       </section>
     </main>
