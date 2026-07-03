@@ -181,6 +181,7 @@ function App() {
   })
   const [citySearch, setCitySearch] = useState('')
   const [citySearchOpen, setCitySearchOpen] = useState(false)
+  const [activeCitySuggestionIndex, setActiveCitySuggestionIndex] = useState(0)
   const [computedOpen, setComputedOpen] = useState(false)
   const [skySignal, setSkySignal] = useState(0)
   const [utcDate, setUtcDate] = useState(() => new Date())
@@ -248,6 +249,7 @@ function App() {
     })
     setCitySearch(location.name)
     setCitySearchOpen(false)
+    setActiveCitySuggestionIndex(0)
   }
 
   const resolveFormTarget = (): LocationTarget => {
@@ -297,6 +299,7 @@ function App() {
         ? nextTarget.name
         : '',
     )
+    setActiveCitySuggestionIndex(0)
   }
 
   return (
@@ -345,12 +348,44 @@ function App() {
                   onChange={(event) => {
                     setCitySearch(event.target.value)
                     setCitySearchOpen(true)
+                    setActiveCitySuggestionIndex(0)
                   }}
                   onFocus={() => setCitySearchOpen(true)}
                   onKeyDown={(event) => {
-                    if (event.key === 'Enter' && citySuggestions[0]) {
+                    if (event.key === 'ArrowDown') {
                       event.preventDefault()
-                      selectLocation(citySuggestions[0])
+                      setCitySearchOpen(true)
+                      setActiveCitySuggestionIndex((value) =>
+                        citySuggestions.length
+                          ? (value + 1) % citySuggestions.length
+                          : 0,
+                      )
+                    }
+
+                    if (event.key === 'ArrowUp') {
+                      event.preventDefault()
+                      setCitySearchOpen(true)
+                      setActiveCitySuggestionIndex((value) =>
+                        citySuggestions.length
+                          ? (value - 1 + citySuggestions.length) %
+                            citySuggestions.length
+                          : 0,
+                      )
+                    }
+
+                    if (event.key === 'Enter') {
+                      const selectedLocation =
+                        citySuggestions[activeCitySuggestionIndex] ??
+                        citySuggestions[0]
+
+                      if (selectedLocation) {
+                        event.preventDefault()
+                        selectLocation(selectedLocation)
+                      }
+                    }
+
+                    if (event.key === 'Escape') {
+                      setCitySearchOpen(false)
                     }
                   }}
                   placeholder="Search city"
@@ -361,14 +396,19 @@ function App() {
 
             {citySearchOpen && citySuggestions.length > 0 ? (
               <div className="absolute left-0 right-0 top-full z-20 mt-2 overflow-hidden rounded-md border border-white/12 bg-[#07111f]/96 shadow-2xl shadow-black/35 backdrop-blur-xl">
-                {citySuggestions.map((location) => (
+                {citySuggestions.map((location, index) => (
                   <button
-                    className="flex h-10 w-full items-center justify-between gap-3 px-3 text-left text-sm text-slate-100 transition hover:bg-cyan-300/10"
+                    className={`flex h-10 w-full items-center justify-between gap-3 px-3 text-left text-sm text-slate-100 transition hover:bg-cyan-300/10 ${
+                      index === activeCitySuggestionIndex
+                        ? 'bg-cyan-300/12 text-cyan-50'
+                        : ''
+                    }`}
                     key={location.name}
                     onMouseDown={(event) => {
                       event.preventDefault()
                       selectLocation(location)
                     }}
+                    onMouseEnter={() => setActiveCitySuggestionIndex(index)}
                     type="button"
                   >
                     <span className="min-w-0 truncate font-medium">
