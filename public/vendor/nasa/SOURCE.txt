@@ -1,6 +1,6 @@
 NASA SVS Earth texture source
 
-File: flat_earth03.jpg
+File: earth_noClouds.0330.jpg
 Source page: https://svs.gsfc.nasa.gov/3615/
-Direct asset: https://svs.gsfc.nasa.gov/vis/a000000/a003600/a003615/flat_earth03.jpg
+Direct asset: https://svs.gsfc.nasa.gov/vis/a000000/a003600/a003615/earth_noClouds.0330.jpg
 Credit: NASA/Goddard Space Flight Center Scientific Visualization Studio. Blue Marble Next Generation data courtesy of Reto Stockli (NASA/GSFC) and NASA Earth Observatory.

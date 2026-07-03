@@ -24,8 +24,8 @@ hemisphere onto a flat planisphere.
 ## Open Source Data And References
 
 - Earth texture is vendored from
-  [NASA SVS item 3615](https://svs.gsfc.nasa.gov/3615/). The copied texture
-  lives in `public/vendor/nasa/flat_earth03.jpg`. Credit:
+  [NASA SVS item 3615](https://svs.gsfc.nasa.gov/3615/). The copied no-cloud
+  texture lives in `public/vendor/nasa/earth_noClouds.0330.jpg`. Credit:
   NASA/Goddard Space Flight Center Scientific Visualization Studio; Blue Marble
   Next Generation data courtesy of Reto Stockli (NASA/GSFC) and NASA Earth
   Observatory.

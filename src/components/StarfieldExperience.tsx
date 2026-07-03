@@ -226,7 +226,7 @@ type EarthProps = {
 }
 
 function Earth({ activeLocation, groupRef, onPick, stage }: EarthProps) {
-  const earthTexture = useTexture('/vendor/nasa/flat_earth03.jpg')
+  const earthTexture = useTexture('/vendor/nasa/earth_noClouds.0330.jpg')
   const markerPosition = useMemo(() => {
     if (!activeLocation) {
       return null
