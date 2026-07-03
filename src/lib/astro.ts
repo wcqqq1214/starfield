@@ -1,7 +1,6 @@
 import { SiderealTime } from 'astronomy-engine'
-import { MathUtils, Vector3 } from 'three'
+import { MathUtils } from 'three'
 import type { CatalogStar } from './celestialCatalog'
-import type { SurfaceFrame } from './geo'
 import type { LocationTarget } from '../types'
 
 const DEG_TO_RAD = Math.PI / 180
@@ -104,27 +103,6 @@ function signedDegrees(value: number): number {
   const normalized = normalizeDegrees(value)
 
   return normalized > 180 ? normalized - 360 : normalized
-}
-
-export function horizonToWorldPosition(
-  frame: SurfaceFrame,
-  azimuthDeg: number,
-  altitudeDeg: number,
-  radius: number,
-): Vector3 {
-  const azimuth = MathUtils.degToRad(azimuthDeg)
-  const altitude = MathUtils.degToRad(altitudeDeg)
-  const horizon = Math.cos(altitude)
-  const direction = new Vector3()
-    .addScaledVector(frame.north, horizon * Math.cos(azimuth))
-    .addScaledVector(frame.east, horizon * Math.sin(azimuth))
-    .addScaledVector(frame.up, Math.sin(altitude))
-    .normalize()
-
-  return frame.position
-    .clone()
-    .addScaledVector(frame.up, 0.06)
-    .addScaledVector(direction, radius)
 }
 
 export function formatUtc(date: Date): string {

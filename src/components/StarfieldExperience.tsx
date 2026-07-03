@@ -23,16 +23,13 @@ import {
 } from 'react'
 import {
   computeHorizonStars,
-  horizonToWorldPosition,
   type HorizonStar,
 } from '../lib/astro'
 import type { CelestialCatalog } from '../lib/celestialCatalog'
 import {
   EARTH_RADIUS,
-  getSurfaceFrame,
   latLonToVector3,
   vector3ToLatLon,
-  type SurfaceFrame,
 } from '../lib/geo'
 import type { ActiveLocation, ExperienceStage, LocationTarget } from '../types'
 
@@ -47,7 +44,8 @@ type StarfieldExperienceProps = {
 }
 
 const CAMERA_HOME = new Vector3(0, 1.55, 5.15)
-const SKY_RADIUS = 13
+const SKY_CHART_RADIUS = 2.35
+const SKY_CHART_CAMERA = new Vector3(0, 0, 6.4)
 
 export function StarfieldExperience({
   catalog,
@@ -110,7 +108,7 @@ function SceneContent({
 
       setActiveLocation(active)
       onTargetChange(nextTarget)
-      applySkyCamera(camera, active, 0, MathUtils.degToRad(78))
+      applyPlanisphereCamera(camera)
       onStageChange('SKY')
     },
     [camera, onStageChange, onTargetChange, stage],
@@ -147,19 +145,13 @@ function SceneContent({
     camera.lookAt(0, 0, 0)
   }, [camera, stage])
 
-  useSkyLookControls(stage, activeLocation)
-
   useEffect(() => {
-    gl.domElement.style.cursor = stage === 'SKY' ? 'grab' : 'default'
-
-    return () => {
-      gl.domElement.style.cursor = 'default'
-    }
-  }, [gl, stage])
+    gl.domElement.style.cursor = 'default'
+  }, [gl])
 
   return (
     <>
-      <StaticStarShell stage={stage} />
+      {stage === 'EARTH' ? <StaticStarShell stage={stage} /> : null}
       <Earth
         activeLocation={activeLocation}
         groupRef={earthGroupRef}
@@ -340,15 +332,6 @@ type LocalSkyProps = {
 }
 
 function LocalSky({ activeLocation, catalog, utcDate }: LocalSkyProps) {
-  const frame = useMemo(
-    () =>
-      getSurfaceFrame(
-        activeLocation.lat,
-        activeLocation.lon,
-        activeLocation.rotationY,
-      ),
-    [activeLocation],
-  )
   const stars = useMemo(
     () =>
       computeHorizonStars(activeLocation, utcDate, catalog.stars).filter(
@@ -359,44 +342,38 @@ function LocalSky({ activeLocation, catalog, utcDate }: LocalSkyProps) {
 
   return (
     <group>
-      <RealStarField frame={frame} stars={stars} />
+      <PlanisphereStarField stars={stars} />
     </group>
   )
 }
 
-type RealStarFieldProps = {
-  frame: SurfaceFrame
+type PlanisphereStarFieldProps = {
   stars: HorizonStar[]
 }
 
-function RealStarField({ frame, stars }: RealStarFieldProps) {
+function PlanisphereStarField({ stars }: PlanisphereStarFieldProps) {
   const { positions, colors } = useMemo(() => {
     const nextPositions = new Float32Array(stars.length * 3)
     const nextColors = new Float32Array(stars.length * 3)
     const color = new Color()
 
     stars.forEach((star, index) => {
-      const position = horizonToWorldPosition(
-        frame,
-        star.azimuth,
-        star.altitude,
-        SKY_RADIUS,
-      )
-      const opacity = star.visible ? 1 : 0.18
+      const radius = ((90 - star.altitude) / 90) * SKY_CHART_RADIUS
+      const azimuth = MathUtils.degToRad(star.azimuth)
 
       color.set(star.color).multiplyScalar(
-        MathUtils.clamp(star.brightness / 2.2, 0.22, 1.35) * opacity,
+        MathUtils.clamp(star.brightness / 2.2, 0.22, 1.35),
       )
-      nextPositions[index * 3] = position.x
-      nextPositions[index * 3 + 1] = position.y
-      nextPositions[index * 3 + 2] = position.z
+      nextPositions[index * 3] = Math.sin(azimuth) * radius
+      nextPositions[index * 3 + 1] = Math.cos(azimuth) * radius
+      nextPositions[index * 3 + 2] = 0
       nextColors[index * 3] = color.r
       nextColors[index * 3 + 1] = color.g
       nextColors[index * 3 + 2] = color.b
     })
 
     return { positions: nextPositions, colors: nextColors }
-  }, [frame, stars])
+  }, [stars])
 
   return (
     <points>
@@ -408,8 +385,8 @@ function RealStarField({ frame, stars }: RealStarFieldProps) {
         blending={AdditiveBlending}
         depthWrite={false}
         opacity={0.95}
-        size={0.038}
-        sizeAttenuation
+        size={2.15}
+        sizeAttenuation={false}
         transparent
         vertexColors
       />
@@ -417,119 +394,10 @@ function RealStarField({ frame, stars }: RealStarFieldProps) {
   )
 }
 
-function useSkyLookControls(
-  stage: ExperienceStage,
-  activeLocation: ActiveLocation | null,
-) {
-  const { camera, gl } = useThree()
-  const viewRef = useRef({
-    dragging: false,
-    lastX: 0,
-    lastY: 0,
-    pitch: MathUtils.degToRad(78),
-    yaw: 0,
-  })
-
-  useEffect(() => {
-    if (stage !== 'SKY' || !activeLocation) {
-      return
-    }
-
-    viewRef.current.yaw = 0
-    viewRef.current.pitch = MathUtils.degToRad(78)
-    applySkyCamera(camera, activeLocation, viewRef.current.yaw, viewRef.current.pitch)
-  }, [activeLocation, camera, stage])
-
-  useEffect(() => {
-    if (stage !== 'SKY' || !activeLocation) {
-      return undefined
-    }
-
-    const canvas = gl.domElement
-    const view = viewRef.current
-
-    const handlePointerDown = (event: PointerEvent) => {
-      if (event.button !== 0) {
-        return
-      }
-
-      view.dragging = true
-      view.lastX = event.clientX
-      view.lastY = event.clientY
-      canvas.style.cursor = 'grabbing'
-      canvas.setPointerCapture(event.pointerId)
-    }
-
-    const handlePointerMove = (event: PointerEvent) => {
-      if (!view.dragging) {
-        return
-      }
-
-      const dx = event.clientX - view.lastX
-      const dy = event.clientY - view.lastY
-      view.lastX = event.clientX
-      view.lastY = event.clientY
-      view.yaw -= dx * 0.004
-      view.pitch = MathUtils.clamp(
-        view.pitch + dy * 0.003,
-        MathUtils.degToRad(-8),
-        MathUtils.degToRad(86),
-      )
-      applySkyCamera(camera, activeLocation, view.yaw, view.pitch)
-    }
-
-    const handlePointerUp = (event: PointerEvent) => {
-      view.dragging = false
-      canvas.style.cursor = 'grab'
-
-      if (canvas.hasPointerCapture(event.pointerId)) {
-        canvas.releasePointerCapture(event.pointerId)
-      }
-    }
-
-    canvas.addEventListener('pointerdown', handlePointerDown)
-    canvas.addEventListener('pointermove', handlePointerMove)
-    canvas.addEventListener('pointerup', handlePointerUp)
-    canvas.addEventListener('pointerleave', handlePointerUp)
-
-    return () => {
-      canvas.removeEventListener('pointerdown', handlePointerDown)
-      canvas.removeEventListener('pointermove', handlePointerMove)
-      canvas.removeEventListener('pointerup', handlePointerUp)
-      canvas.removeEventListener('pointerleave', handlePointerUp)
-      view.dragging = false
-    }
-  }, [activeLocation, camera, gl, stage])
-}
-
-function applySkyCamera(
-  camera: Camera,
-  activeLocation: ActiveLocation,
-  yaw: number,
-  pitch: number,
-) {
-  const frame = getSurfaceFrame(
-    activeLocation.lat,
-    activeLocation.lon,
-    activeLocation.rotationY,
-  )
-  const horizonDirection = frame.north
-    .clone()
-    .multiplyScalar(Math.cos(yaw))
-    .addScaledVector(frame.east, Math.sin(yaw))
-    .normalize()
-  const direction = horizonDirection
-    .multiplyScalar(Math.cos(pitch))
-    .addScaledVector(frame.up, Math.sin(pitch))
-    .normalize()
-  const position = frame.position.clone().addScaledVector(frame.up, 0.055)
-  const target = position.clone().add(direction)
-  const safeUp =
-    Math.abs(direction.dot(frame.up)) > 0.96 ? frame.north : frame.up
-
-  camera.position.copy(position)
-  camera.up.copy(safeUp)
-  camera.lookAt(target)
+function applyPlanisphereCamera(camera: Camera) {
+  camera.position.copy(SKY_CHART_CAMERA)
+  camera.up.set(0, 1, 0)
+  camera.lookAt(0, 0, 0)
 }
 
 function mulberry32(seed: number): () => number {
