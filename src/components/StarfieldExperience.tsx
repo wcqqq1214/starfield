@@ -6,10 +6,8 @@ import { Canvas, type ThreeEvent, useFrame, useThree } from '@react-three/fiber'
 import {
   AdditiveBlending,
   BackSide,
-  CanvasTexture,
   Color,
   Group,
-  LinearFilter,
   MathUtils,
   SRGBColorSpace,
   Vector3,
@@ -48,6 +46,45 @@ type StarfieldExperienceProps = {
 const CAMERA_HOME = new Vector3(0, 1.55, 5.15)
 const SKY_CHART_RADIUS = 3.05
 const SKY_CHART_CAMERA = new Vector3(0, 0, 7)
+const STAR_WHITE = new Color('#f8fbff')
+
+const STAR_VERTEX_SHADER = `
+  attribute float aSize;
+  attribute float aIntensity;
+
+  varying vec3 vColor;
+  varying float vIntensity;
+
+  void main() {
+    vColor = color;
+    vIntensity = aIntensity;
+
+    vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+    gl_PointSize = aSize;
+    gl_Position = projectionMatrix * mvPosition;
+  }
+`
+
+const STAR_FRAGMENT_SHADER = `
+  varying vec3 vColor;
+  varying float vIntensity;
+
+  void main() {
+    vec2 point = gl_PointCoord - vec2(0.5);
+    float distanceFromCenter = length(point) * 2.0;
+    float core = smoothstep(0.34, 0.0, distanceFromCenter);
+    float halo = smoothstep(1.0, 0.0, distanceFromCenter);
+    float alpha = (core * 1.0 + halo * 0.45) * vIntensity;
+
+    if (alpha < 0.015) {
+      discard;
+    }
+
+    vec3 glow = vColor * (0.78 + core * 0.9 + halo * 0.34);
+
+    gl_FragColor = vec4(glow, alpha);
+  }
+`
 
 export function StarfieldExperience({
   catalog,
@@ -354,28 +391,45 @@ type PlanisphereStarFieldProps = {
 }
 
 function PlanisphereStarField({ stars }: PlanisphereStarFieldProps) {
-  const starTexture = useMemo(() => createStarPointTexture(), [])
-  const { positions, colors } = useMemo(() => {
+  const { colors, intensities, positions, sizes } = useMemo(() => {
     const nextPositions = new Float32Array(stars.length * 3)
     const nextColors = new Float32Array(stars.length * 3)
+    const nextSizes = new Float32Array(stars.length)
+    const nextIntensities = new Float32Array(stars.length)
     const color = new Color()
 
     stars.forEach((star, index) => {
       const radius = ((90 - star.altitude) / 90) * SKY_CHART_RADIUS
       const azimuth = MathUtils.degToRad(star.azimuth)
+      const magnitudeRank = MathUtils.clamp((6.1 - star.magnitude) / 7.6, 0, 1)
+      const brightStar = magnitudeRank ** 1.65
+      const horizonFade = MathUtils.smoothstep(star.altitude, 0, 14)
+      const colorNeutrality = MathUtils.lerp(0.74, 0.5, magnitudeRank)
 
-      color.set(star.color).multiplyScalar(
-        MathUtils.clamp(star.brightness / 2.2, 0.22, 1.35),
-      )
+      color
+        .set(star.color)
+        .lerp(STAR_WHITE, colorNeutrality)
+        .multiplyScalar(MathUtils.lerp(0.88, 1.22, magnitudeRank))
       nextPositions[index * 3] = Math.sin(azimuth) * radius
       nextPositions[index * 3 + 1] = Math.cos(azimuth) * radius
       nextPositions[index * 3 + 2] = 0
       nextColors[index * 3] = color.r
       nextColors[index * 3 + 1] = color.g
       nextColors[index * 3 + 2] = color.b
+      nextSizes[index] =
+        MathUtils.lerp(2.9, 11.4, brightStar) *
+        MathUtils.lerp(0.86, 1, horizonFade)
+      nextIntensities[index] =
+        MathUtils.lerp(0.42, 1.34, brightStar) *
+        MathUtils.lerp(0.58, 1, horizonFade)
     })
 
-    return { positions: nextPositions, colors: nextColors }
+    return {
+      colors: nextColors,
+      intensities: nextIntensities,
+      positions: nextPositions,
+      sizes: nextSizes,
+    }
   }, [stars])
 
   return (
@@ -383,47 +437,22 @@ function PlanisphereStarField({ stars }: PlanisphereStarFieldProps) {
       <bufferGeometry>
         <bufferAttribute attach="attributes-position" args={[positions, 3]} />
         <bufferAttribute attach="attributes-color" args={[colors, 3]} />
+        <bufferAttribute attach="attributes-aSize" args={[sizes, 1]} />
+        <bufferAttribute
+          attach="attributes-aIntensity"
+          args={[intensities, 1]}
+        />
       </bufferGeometry>
-      <pointsMaterial
+      <shaderMaterial
         blending={AdditiveBlending}
         depthWrite={false}
-        opacity={0.95}
-        alphaTest={0.02}
-        map={starTexture}
-        size={3.6}
-        sizeAttenuation={false}
+        fragmentShader={STAR_FRAGMENT_SHADER}
         transparent
         vertexColors
+        vertexShader={STAR_VERTEX_SHADER}
       />
     </points>
   )
-}
-
-function createStarPointTexture(): CanvasTexture {
-  const size = 64
-  const canvas = document.createElement('canvas')
-  canvas.width = size
-  canvas.height = size
-
-  const context = canvas.getContext('2d')
-
-  if (context) {
-    const half = size / 2
-    const gradient = context.createRadialGradient(half, half, 0, half, half, half)
-    gradient.addColorStop(0, 'rgba(255, 255, 255, 1)')
-    gradient.addColorStop(0.22, 'rgba(255, 255, 255, 0.92)')
-    gradient.addColorStop(0.55, 'rgba(255, 255, 255, 0.32)')
-    gradient.addColorStop(1, 'rgba(255, 255, 255, 0)')
-
-    context.fillStyle = gradient
-    context.fillRect(0, 0, size, size)
-  }
-
-  const texture = new CanvasTexture(canvas)
-  texture.minFilter = LinearFilter
-  texture.magFilter = LinearFilter
-
-  return texture
 }
 
 function applyPlanisphereCamera(camera: Camera) {
