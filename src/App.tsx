@@ -180,6 +180,7 @@ function App() {
     lon: DEFAULT_LOCATION.lon.toString(),
   })
   const [citySearch, setCitySearch] = useState('')
+  const [citySearchOpen, setCitySearchOpen] = useState(false)
   const [computedOpen, setComputedOpen] = useState(false)
   const [skySignal, setSkySignal] = useState(0)
   const [utcDate, setUtcDate] = useState(() => new Date())
@@ -227,16 +228,16 @@ function App() {
     [catalog, skyDate, target],
   )
 
-  const filteredLocations = useMemo(() => {
+  const citySuggestions = useMemo(() => {
     const query = citySearch.trim().toLowerCase()
 
     if (!query) {
-      return CITY_LOCATIONS.slice(0, 8)
+      return []
     }
 
     return CITY_LOCATIONS.filter((location) =>
       `${location.name} ${location.note}`.toLowerCase().includes(query),
-    ).slice(0, 8)
+    ).slice(0, 5)
   }, [citySearch])
 
   const selectLocation = (location: LocationTarget) => {
@@ -246,6 +247,7 @@ function App() {
       lon: location.lon.toFixed(4),
     })
     setCitySearch(location.name)
+    setCitySearchOpen(false)
   }
 
   const resolveFormTarget = (): LocationTarget => {
@@ -331,7 +333,7 @@ function App() {
             </span>
           </div>
 
-          <div className="mt-5">
+          <div className="relative mt-5">
             <label className="text-xs font-medium uppercase text-slate-400">
               City
               <div className="mt-1 flex h-10 items-center gap-2 rounded-md border border-white/10 bg-black/25 px-3 transition focus-within:border-cyan-300/60">
@@ -339,44 +341,46 @@ function App() {
                 <input
                   className="h-full min-w-0 flex-1 bg-transparent text-sm text-white outline-none placeholder:text-slate-500"
                   disabled={stage !== 'EARTH'}
-                  onChange={(event) => setCitySearch(event.target.value)}
+                  onBlur={() => setCitySearchOpen(false)}
+                  onChange={(event) => {
+                    setCitySearch(event.target.value)
+                    setCitySearchOpen(true)
+                  }}
+                  onFocus={() => setCitySearchOpen(true)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter' && citySuggestions[0]) {
+                      event.preventDefault()
+                      selectLocation(citySuggestions[0])
+                    }
+                  }}
                   placeholder="Search city"
                   value={citySearch}
                 />
               </div>
             </label>
 
-            <div className="mt-2 max-h-52 space-y-1 overflow-y-auto pr-1">
-              {filteredLocations.map((location) => (
-                <button
-                  className="grid w-full grid-cols-[1fr_auto] items-center gap-3 rounded-md border border-white/10 bg-white/[0.045] px-3 py-2 text-left text-sm text-slate-100 transition hover:border-cyan-300/45 hover:bg-cyan-300/10 disabled:cursor-not-allowed disabled:opacity-45"
-                  disabled={stage !== 'EARTH'}
-                  key={location.name}
-                  onClick={() => selectLocation(location)}
-                  type="button"
-                >
-                  <span className="min-w-0">
-                    <span className="block truncate font-medium">
+            {citySearchOpen && citySuggestions.length > 0 ? (
+              <div className="absolute left-0 right-0 top-full z-20 mt-2 overflow-hidden rounded-md border border-white/12 bg-[#07111f]/96 shadow-2xl shadow-black/35 backdrop-blur-xl">
+                {citySuggestions.map((location) => (
+                  <button
+                    className="flex h-10 w-full items-center justify-between gap-3 px-3 text-left text-sm text-slate-100 transition hover:bg-cyan-300/10"
+                    key={location.name}
+                    onMouseDown={(event) => {
+                      event.preventDefault()
+                      selectLocation(location)
+                    }}
+                    type="button"
+                  >
+                    <span className="min-w-0 truncate font-medium">
                       {location.name}
                     </span>
-                    <span className="mt-0.5 block truncate text-xs text-slate-400">
+                    <span className="shrink-0 text-xs text-slate-400">
                       {location.note}
                     </span>
-                  </span>
-                  <span className="text-right text-xs text-cyan-100">
-                    <span className="block">{location.lat.toFixed(1)} deg</span>
-                    <span className="block text-slate-400">
-                      {location.lon.toFixed(1)} deg
-                    </span>
-                  </span>
-                </button>
-              ))}
-              {filteredLocations.length === 0 ? (
-                <div className="rounded-md border border-white/8 bg-white/[0.045] px-3 py-2 text-sm text-slate-400">
-                  No city found
-                </div>
-              ) : null}
-            </div>
+                  </button>
+                ))}
+              </div>
+            ) : null}
           </div>
 
           <div className="mt-4 grid grid-cols-2 gap-3">
