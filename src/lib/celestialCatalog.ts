@@ -9,21 +9,8 @@ export type CatalogStar = {
   color: string
 }
 
-export type EquatorialPoint = {
-  raDeg: number
-  decDeg: number
-}
-
-export type EquatorialPolyline = {
-  id: string
-  rank?: number
-  points: EquatorialPoint[]
-}
-
 export type CelestialCatalog = {
   stars: CatalogStar[]
-  constellationLines: EquatorialPolyline[]
-  milkyWayOutlines: EquatorialPolyline[]
 }
 
 type D3StarFeature = {
@@ -56,47 +43,14 @@ type D3Stars = {
   features: D3StarFeature[]
 }
 
-type D3LineFeature = {
-  id?: string
-  properties?: {
-    rank?: string
-  }
-  geometry: {
-    type: 'MultiLineString'
-    coordinates: Array<Array<[number, number]>>
-  }
-}
-
-type D3LineCollection = {
-  type: 'FeatureCollection'
-  features: D3LineFeature[]
-}
-
-type D3MilkyWayFeature = {
-  id?: string
-  geometry: {
-    type: 'MultiPolygon'
-    coordinates: Array<Array<Array<[number, number]>>>
-  }
-}
-
-type D3MilkyWayCollection = {
-  type: 'FeatureCollection'
-  features: D3MilkyWayFeature[]
-}
-
 export async function loadD3CelestialCatalog(): Promise<CelestialCatalog> {
-  const [stars, starNames, constellationLines, milkyWay] = await Promise.all([
+  const [stars, starNames] = await Promise.all([
     fetchJson<D3Stars>('/vendor/d3-celestial/stars.6.json'),
     fetchJson<D3StarNames>('/vendor/d3-celestial/starnames.json'),
-    fetchJson<D3LineCollection>('/vendor/d3-celestial/constellations.lines.json'),
-    fetchJson<D3MilkyWayCollection>('/vendor/d3-celestial/mw.json'),
   ])
 
   return {
     stars: mapStars(stars, starNames),
-    constellationLines: mapConstellationLines(constellationLines),
-    milkyWayOutlines: mapMilkyWayOutlines(milkyWay),
   }
 }
 
@@ -150,37 +104,6 @@ function getStarDisplayName(id: string, metadata: D3StarNames[string] | undefine
   const hip = metadata?.hip?.trim()
 
   return hip || `HIP ${id}`
-}
-
-function mapConstellationLines(collection: D3LineCollection): EquatorialPolyline[] {
-  return collection.features.flatMap((feature) => {
-    const rank = Number.parseInt(feature.properties?.rank ?? '', 10)
-
-    return feature.geometry.coordinates.map((line, index) => ({
-      id: `${feature.id ?? 'constellation'}-${index}`,
-      points: line.map(([raDeg, decDeg]) => ({
-        raDeg: normalizeDegrees(raDeg),
-        decDeg,
-      })),
-      ...(Number.isFinite(rank) ? { rank } : {}),
-    }))
-  })
-}
-
-function mapMilkyWayOutlines(collection: D3MilkyWayCollection): EquatorialPolyline[] {
-  return collection.features.flatMap((feature) =>
-    feature.geometry.coordinates.flatMap((polygon, polygonIndex) =>
-      polygon.map((ring, ringIndex) => ({
-        id: `${feature.id ?? 'mw'}-${polygonIndex}-${ringIndex}`,
-        points: ring
-          .filter((_, index) => index % 10 === 0)
-          .map(([raDeg, decDeg]) => ({
-            raDeg: normalizeDegrees(raDeg),
-            decDeg,
-          })),
-      })),
-    ),
-  )
 }
 
 function normalizeDegrees(value: number): number {

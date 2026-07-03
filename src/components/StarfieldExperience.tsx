@@ -1,8 +1,5 @@
 import {
-  Billboard,
-  Line,
   OrbitControls,
-  Text,
   useTexture,
 } from '@react-three/drei'
 import { Canvas, type ThreeEvent, useFrame, useThree } from '@react-three/fiber'
@@ -10,10 +7,8 @@ import {
   AdditiveBlending,
   BackSide,
   Color,
-  DoubleSide,
   Group,
   MathUtils,
-  Quaternion,
   SRGBColorSpace,
   Vector3,
   type Camera,
@@ -27,7 +22,6 @@ import {
   type RefObject,
 } from 'react'
 import {
-  computeHorizonPolylines,
   computeHorizonStars,
   horizonToWorldPosition,
   type HorizonStar,
@@ -358,165 +352,15 @@ function LocalSky({ activeLocation, catalog, utcDate }: LocalSkyProps) {
   const stars = useMemo(
     () =>
       computeHorizonStars(activeLocation, utcDate, catalog.stars).filter(
-        (star) => star.altitude > -8,
+        (star) => star.visible,
       ),
     [activeLocation, catalog.stars, utcDate],
-  )
-  const labelStars = useMemo(
-    () =>
-      stars
-        .filter((star) => star.visible && star.magnitude <= 1.25)
-        .slice(0, 9),
-    [stars],
-  )
-  const constellationPaths = useMemo(
-    () =>
-      computeHorizonPolylines(
-        activeLocation,
-        utcDate,
-        frame,
-        catalog.constellationLines.filter(
-          (polyline) => polyline.rank === undefined || polyline.rank <= 2,
-        ),
-        SKY_RADIUS,
-      ),
-    [activeLocation, catalog.constellationLines, frame, utcDate],
-  )
-  const milkyWayPaths = useMemo(
-    () =>
-      computeHorizonPolylines(
-        activeLocation,
-        utcDate,
-        frame,
-        catalog.milkyWayOutlines,
-        SKY_RADIUS * 0.985,
-        -6,
-      ),
-    [activeLocation, catalog.milkyWayOutlines, frame, utcDate],
   )
 
   return (
     <group>
-      <SkyGround frame={frame} />
-      <MilkyWayLines paths={milkyWayPaths} />
-      <ConstellationLines paths={constellationPaths} />
-      <AltitudeRing altitude={0} frame={frame} opacity={0.62} />
-      <AltitudeRing altitude={30} frame={frame} opacity={0.28} />
-      <AltitudeRing altitude={60} frame={frame} opacity={0.2} />
       <RealStarField frame={frame} stars={stars} />
-      {labelStars.map((star) => (
-        <StarLabel frame={frame} key={star.id} star={star} />
-      ))}
     </group>
-  )
-}
-
-type SkyGroundProps = {
-  frame: SurfaceFrame
-}
-
-function SkyGround({ frame }: SkyGroundProps) {
-  const quaternion = useMemo(
-    () => new Quaternion().setFromUnitVectors(new Vector3(0, 0, 1), frame.up),
-    [frame],
-  )
-  const groundPosition = useMemo(
-    () => frame.position.clone().addScaledVector(frame.up, -0.012),
-    [frame],
-  )
-
-  return (
-    <group position={groundPosition} quaternion={quaternion}>
-      <mesh>
-        <circleGeometry args={[SKY_RADIUS * 0.92, 160]} />
-        <meshBasicMaterial
-          color="#06111a"
-          opacity={0.86}
-          side={DoubleSide}
-          transparent
-        />
-      </mesh>
-      <mesh>
-        <torusGeometry args={[SKY_RADIUS * 0.92, 0.012, 8, 192]} />
-        <meshBasicMaterial
-          blending={AdditiveBlending}
-          color="#7dd8ff"
-          opacity={0.45}
-          transparent
-        />
-      </mesh>
-    </group>
-  )
-}
-
-type AltitudeRingProps = {
-  altitude: number
-  frame: SurfaceFrame
-  opacity: number
-}
-
-function AltitudeRing({ altitude, frame, opacity }: AltitudeRingProps) {
-  const points = useMemo(() => {
-    const ring: Vector3[] = []
-
-    for (let step = 0; step <= 192; step += 1) {
-      ring.push(
-        horizonToWorldPosition(frame, (step / 192) * 360, altitude, SKY_RADIUS),
-      )
-    }
-
-    return ring
-  }, [altitude, frame])
-
-  return (
-    <Line
-      color="#7dd8ff"
-      depthWrite={false}
-      lineWidth={1}
-      opacity={opacity}
-      points={points}
-      transparent
-    />
-  )
-}
-
-type SkyPathProps = {
-  paths: Vector3[][]
-}
-
-function ConstellationLines({ paths }: SkyPathProps) {
-  return (
-    <>
-      {paths.map((points, index) => (
-        <Line
-          color="#87d5ff"
-          depthWrite={false}
-          key={`constellation-${index}`}
-          lineWidth={0.6}
-          opacity={0.2}
-          points={points}
-          transparent
-        />
-      ))}
-    </>
-  )
-}
-
-function MilkyWayLines({ paths }: SkyPathProps) {
-  return (
-    <>
-      {paths.map((points, index) => (
-        <Line
-          color="#9fc9ff"
-          depthWrite={false}
-          key={`milky-way-${index}`}
-          lineWidth={1.2}
-          opacity={0.08}
-          points={points}
-          transparent
-        />
-      ))}
-    </>
   )
 }
 
@@ -570,35 +414,6 @@ function RealStarField({ frame, stars }: RealStarFieldProps) {
         vertexColors
       />
     </points>
-  )
-}
-
-type StarLabelProps = {
-  frame: SurfaceFrame
-  star: HorizonStar
-}
-
-function StarLabel({ frame, star }: StarLabelProps) {
-  const position = useMemo(
-    () => horizonToWorldPosition(frame, star.azimuth, star.altitude, SKY_RADIUS),
-    [frame, star.altitude, star.azimuth],
-  )
-
-  return (
-    <Billboard follow position={position}>
-      <Text
-        anchorX="center"
-        anchorY="middle"
-        color="#e9f5ff"
-        fontSize={0.09}
-        outlineBlur={0.012}
-        outlineColor="#02050c"
-        outlineOpacity={0.85}
-        position={[0, 0.16, 0]}
-      >
-        {star.displayName}
-      </Text>
-    </Billboard>
   )
 }
 

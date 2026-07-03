@@ -90,7 +90,8 @@ function App() {
     }
   }, [])
 
-  const skyDate = useMemo(() => floorUtcToMinute(utcDate), [utcDate])
+  const skyMinute = Math.floor(utcDate.getTime() / 60_000)
+  const skyDate = useMemo(() => new Date(skyMinute * 60_000), [skyMinute])
 
   const visibleStars = useMemo(
     () =>
@@ -365,13 +366,6 @@ function normalizeLongitude(value: number): number {
   const normalized = ((((value + 180) % 360) + 360) % 360) - 180
 
   return normalized === -180 ? 180 : normalized
-}
-
-function floorUtcToMinute(date: Date): Date {
-  const nextDate = new Date(date)
-  nextDate.setUTCSeconds(0, 0)
-
-  return nextDate
 }
 
 export default App

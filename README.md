@@ -27,10 +27,11 @@ longitude, and current UTC time.
   NASA/Goddard Space Flight Center Scientific Visualization Studio; Blue Marble
   Next Generation data courtesy of Reto Stockli (NASA/GSFC) and NASA Earth
   Observatory.
-- Runtime star, constellation, and Milky Way data is vendored from
+- Runtime star positions and star names are vendored from
   [ofrohn/d3-celestial](https://github.com/ofrohn/d3-celestial), licensed under
-  BSD-3-Clause. The copied files live in `public/vendor/d3-celestial/`, including
-  the upstream `LICENSE`.
+  BSD-3-Clause. The copied files live in `public/vendor/d3-celestial/`,
+  including the upstream `LICENSE`. Constellation and Milky Way line rendering is
+  intentionally disabled for the current clean-sky prototype.
 - [typpo/spacekit](https://github.com/typpo/spacekit) is a useful MIT-licensed
   Three.js reference for larger-scale solar-system and particle visualization,
   but it is not imported into this app.
