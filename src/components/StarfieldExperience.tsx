@@ -6,8 +6,10 @@ import { Canvas, type ThreeEvent, useFrame, useThree } from '@react-three/fiber'
 import {
   AdditiveBlending,
   BackSide,
+  CanvasTexture,
   Color,
   Group,
+  LinearFilter,
   MathUtils,
   SRGBColorSpace,
   Vector3,
@@ -44,8 +46,8 @@ type StarfieldExperienceProps = {
 }
 
 const CAMERA_HOME = new Vector3(0, 1.55, 5.15)
-const SKY_CHART_RADIUS = 2.35
-const SKY_CHART_CAMERA = new Vector3(0, 0, 6.4)
+const SKY_CHART_RADIUS = 3.05
+const SKY_CHART_CAMERA = new Vector3(0, 0, 7)
 
 export function StarfieldExperience({
   catalog,
@@ -352,6 +354,7 @@ type PlanisphereStarFieldProps = {
 }
 
 function PlanisphereStarField({ stars }: PlanisphereStarFieldProps) {
+  const starTexture = useMemo(() => createStarPointTexture(), [])
   const { positions, colors } = useMemo(() => {
     const nextPositions = new Float32Array(stars.length * 3)
     const nextColors = new Float32Array(stars.length * 3)
@@ -385,13 +388,42 @@ function PlanisphereStarField({ stars }: PlanisphereStarFieldProps) {
         blending={AdditiveBlending}
         depthWrite={false}
         opacity={0.95}
-        size={2.15}
+        alphaTest={0.02}
+        map={starTexture}
+        size={3.6}
         sizeAttenuation={false}
         transparent
         vertexColors
       />
     </points>
   )
+}
+
+function createStarPointTexture(): CanvasTexture {
+  const size = 64
+  const canvas = document.createElement('canvas')
+  canvas.width = size
+  canvas.height = size
+
+  const context = canvas.getContext('2d')
+
+  if (context) {
+    const half = size / 2
+    const gradient = context.createRadialGradient(half, half, 0, half, half, half)
+    gradient.addColorStop(0, 'rgba(255, 255, 255, 1)')
+    gradient.addColorStop(0.22, 'rgba(255, 255, 255, 0.92)')
+    gradient.addColorStop(0.55, 'rgba(255, 255, 255, 0.32)')
+    gradient.addColorStop(1, 'rgba(255, 255, 255, 0)')
+
+    context.fillStyle = gradient
+    context.fillRect(0, 0, size, size)
+  }
+
+  const texture = new CanvasTexture(canvas)
+  texture.minFilter = LinearFilter
+  texture.magFilter = LinearFilter
+
+  return texture
 }
 
 function applyPlanisphereCamera(camera: Camera) {
