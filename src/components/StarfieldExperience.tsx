@@ -5,6 +5,7 @@ import {
   AdditiveBlending,
   BackSide,
   CanvasTexture,
+  Color,
   DoubleSide,
   Group,
   MathUtils,
@@ -23,7 +24,13 @@ import {
   useState,
   type RefObject,
 } from 'react'
-import { computeHorizonStars, horizonToWorldPosition } from '../lib/astro'
+import {
+  computeHorizonPolylines,
+  computeHorizonStars,
+  horizonToWorldPosition,
+  type HorizonStar,
+} from '../lib/astro'
+import type { CelestialCatalog } from '../lib/celestialCatalog'
 import {
   EARTH_RADIUS,
   getSurfaceFrame,
@@ -34,6 +41,7 @@ import {
 import type { ActiveLocation, ExperienceStage, LocationTarget } from '../types'
 
 type StarfieldExperienceProps = {
+  catalog: CelestialCatalog | null
   stage: ExperienceStage
   target: LocationTarget
   diveSignal: number
@@ -47,6 +55,7 @@ const SKY_RADIUS = 13
 const MATRIX_SCRATCH = new Matrix4()
 
 export function StarfieldExperience({
+  catalog,
   stage,
   target,
   diveSignal,
@@ -66,6 +75,7 @@ export function StarfieldExperience({
       <directionalLight color="#f7fbff" intensity={3.4} position={[4, 2, 4]} />
       <directionalLight color="#5fb0ff" intensity={1.2} position={[-3, 1, -4]} />
       <SceneContent
+        catalog={catalog}
         diveSignal={diveSignal}
         onStageChange={onStageChange}
         onTargetChange={onTargetChange}
@@ -80,6 +90,7 @@ export function StarfieldExperience({
 type SceneContentProps = StarfieldExperienceProps
 
 function SceneContent({
+  catalog,
   stage,
   target,
   diveSignal,
@@ -220,8 +231,12 @@ function SceneContent({
         onPick={handleGlobePick}
         stage={stage}
       />
-      {activeLocation && stage === 'SKY' ? (
-        <LocalSky activeLocation={activeLocation} utcDate={utcDate} />
+      {activeLocation && stage === 'SKY' && catalog ? (
+        <LocalSky
+          activeLocation={activeLocation}
+          catalog={catalog}
+          utcDate={utcDate}
+        />
       ) : null}
       <OrbitControls
         autoRotate={stage === 'EARTH'}
@@ -394,10 +409,11 @@ function StaticStarShell({ stage }: StaticStarShellProps) {
 
 type LocalSkyProps = {
   activeLocation: ActiveLocation
+  catalog: CelestialCatalog
   utcDate: Date
 }
 
-function LocalSky({ activeLocation, utcDate }: LocalSkyProps) {
+function LocalSky({ activeLocation, catalog, utcDate }: LocalSkyProps) {
   const frame = useMemo(
     () =>
       getSurfaceFrame(
@@ -409,35 +425,55 @@ function LocalSky({ activeLocation, utcDate }: LocalSkyProps) {
   )
   const stars = useMemo(
     () =>
-      computeHorizonStars(activeLocation, utcDate).filter(
+      computeHorizonStars(activeLocation, utcDate, catalog.stars).filter(
         (star) => star.altitude > -8,
       ),
-    [activeLocation, utcDate],
+    [activeLocation, catalog.stars, utcDate],
   )
-  const labelIds = useMemo(
+  const labelStars = useMemo(
     () =>
-      new Set(
-        stars
-          .filter((star) => star.visible && star.magnitude <= 1.3)
-          .slice(0, 8)
-          .map((star) => star.id),
-      ),
+      stars
+        .filter((star) => star.visible && star.magnitude <= 1.25)
+        .slice(0, 9),
     [stars],
+  )
+  const constellationPaths = useMemo(
+    () =>
+      computeHorizonPolylines(
+        activeLocation,
+        utcDate,
+        frame,
+        catalog.constellationLines.filter(
+          (polyline) => polyline.rank === undefined || polyline.rank <= 2,
+        ),
+        SKY_RADIUS,
+      ),
+    [activeLocation, catalog.constellationLines, frame, utcDate],
+  )
+  const milkyWayPaths = useMemo(
+    () =>
+      computeHorizonPolylines(
+        activeLocation,
+        utcDate,
+        frame,
+        catalog.milkyWayOutlines,
+        SKY_RADIUS * 0.985,
+        -6,
+      ),
+    [activeLocation, catalog.milkyWayOutlines, frame, utcDate],
   )
 
   return (
     <group>
       <SkyGround frame={frame} />
+      <MilkyWayLines paths={milkyWayPaths} />
+      <ConstellationLines paths={constellationPaths} />
       <AltitudeRing altitude={0} frame={frame} opacity={0.62} />
       <AltitudeRing altitude={30} frame={frame} opacity={0.28} />
       <AltitudeRing altitude={60} frame={frame} opacity={0.2} />
-      {stars.map((star) => (
-        <RealStar
-          frame={frame}
-          key={star.id}
-          label={labelIds.has(star.id)}
-          star={star}
-        />
+      <RealStarField frame={frame} stars={stars} />
+      {labelStars.map((star) => (
+        <StarLabel frame={frame} key={star.id} star={star} />
       ))}
     </group>
   )
@@ -492,7 +528,9 @@ function AltitudeRing({ altitude, frame, opacity }: AltitudeRingProps) {
     const ring: Vector3[] = []
 
     for (let step = 0; step <= 192; step += 1) {
-      ring.push(horizonToWorldPosition(frame, (step / 192) * 360, altitude, SKY_RADIUS))
+      ring.push(
+        horizonToWorldPosition(frame, (step / 192) * 360, altitude, SKY_RADIUS),
+      )
     }
 
     return ring
@@ -510,60 +548,125 @@ function AltitudeRing({ altitude, frame, opacity }: AltitudeRingProps) {
   )
 }
 
-type RealStarProps = {
-  frame: SurfaceFrame
-  label: boolean
-  star: ReturnType<typeof computeHorizonStars>[number]
+type SkyPathProps = {
+  paths: Vector3[][]
 }
 
-function RealStar({ frame, label, star }: RealStarProps) {
-  const position = useMemo(
-    () =>
-      horizonToWorldPosition(frame, star.azimuth, star.altitude, SKY_RADIUS),
-    [frame, star.altitude, star.azimuth],
+function ConstellationLines({ paths }: SkyPathProps) {
+  return (
+    <>
+      {paths.map((points, index) => (
+        <Line
+          color="#87d5ff"
+          depthWrite={false}
+          key={`constellation-${index}`}
+          lineWidth={0.6}
+          opacity={0.2}
+          points={points}
+          transparent
+        />
+      ))}
+    </>
   )
-  const size = MathUtils.clamp(star.brightness * 0.018, 0.012, 0.07)
-  const opacity = star.visible ? 1 : 0.23
+}
+
+function MilkyWayLines({ paths }: SkyPathProps) {
+  return (
+    <>
+      {paths.map((points, index) => (
+        <Line
+          color="#9fc9ff"
+          depthWrite={false}
+          key={`milky-way-${index}`}
+          lineWidth={1.2}
+          opacity={0.08}
+          points={points}
+          transparent
+        />
+      ))}
+    </>
+  )
+}
+
+type RealStarFieldProps = {
+  frame: SurfaceFrame
+  stars: HorizonStar[]
+}
+
+function RealStarField({ frame, stars }: RealStarFieldProps) {
+  const { positions, colors } = useMemo(() => {
+    const nextPositions = new Float32Array(stars.length * 3)
+    const nextColors = new Float32Array(stars.length * 3)
+    const color = new Color()
+
+    stars.forEach((star, index) => {
+      const position = horizonToWorldPosition(
+        frame,
+        star.azimuth,
+        star.altitude,
+        SKY_RADIUS,
+      )
+      const opacity = star.visible ? 1 : 0.18
+
+      color.set(star.color).multiplyScalar(
+        MathUtils.clamp(star.brightness / 2.2, 0.22, 1.35) * opacity,
+      )
+      nextPositions[index * 3] = position.x
+      nextPositions[index * 3 + 1] = position.y
+      nextPositions[index * 3 + 2] = position.z
+      nextColors[index * 3] = color.r
+      nextColors[index * 3 + 1] = color.g
+      nextColors[index * 3 + 2] = color.b
+    })
+
+    return { positions: nextPositions, colors: nextColors }
+  }, [frame, stars])
 
   return (
-    <group position={position}>
-      <mesh>
-        <sphereGeometry args={[size, 18, 18]} />
-        <meshBasicMaterial
-          blending={AdditiveBlending}
-          color={star.color}
-          opacity={opacity}
-          toneMapped={false}
-          transparent
-        />
-      </mesh>
-      <mesh scale={2.65}>
-        <sphereGeometry args={[size, 18, 18]} />
-        <meshBasicMaterial
-          blending={AdditiveBlending}
-          color={star.color}
-          opacity={opacity * 0.18}
-          toneMapped={false}
-          transparent
-        />
-      </mesh>
-      {label ? (
-        <Billboard follow>
-          <Text
-            anchorX="center"
-            anchorY="middle"
-            color="#e9f5ff"
-            fontSize={0.09}
-            outlineBlur={0.012}
-            outlineColor="#02050c"
-            outlineOpacity={0.85}
-            position={[0, 0.16, 0]}
-          >
-            {star.name}
-          </Text>
-        </Billboard>
-      ) : null}
-    </group>
+    <points>
+      <bufferGeometry>
+        <bufferAttribute attach="attributes-position" args={[positions, 3]} />
+        <bufferAttribute attach="attributes-color" args={[colors, 3]} />
+      </bufferGeometry>
+      <pointsMaterial
+        blending={AdditiveBlending}
+        depthWrite={false}
+        opacity={0.95}
+        size={0.038}
+        sizeAttenuation
+        transparent
+        vertexColors
+      />
+    </points>
+  )
+}
+
+type StarLabelProps = {
+  frame: SurfaceFrame
+  star: HorizonStar
+}
+
+function StarLabel({ frame, star }: StarLabelProps) {
+  const position = useMemo(
+    () => horizonToWorldPosition(frame, star.azimuth, star.altitude, SKY_RADIUS),
+    [frame, star.altitude, star.azimuth],
+  )
+
+  return (
+    <Billboard follow position={position}>
+      <Text
+        anchorX="center"
+        anchorY="middle"
+        color="#e9f5ff"
+        fontSize={0.09}
+        outlineBlur={0.012}
+        outlineColor="#02050c"
+        outlineOpacity={0.85}
+        position={[0, 0.16, 0]}
+      >
+        {star.displayName}
+      </Text>
+    </Billboard>
   )
 }
 

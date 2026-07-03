@@ -21,6 +21,23 @@ latitude, longitude, and current UTC time.
 - astronomy-engine
 - Tailwind CSS + Framer Motion
 
+## Open Source Data And References
+
+- Runtime star, constellation, and Milky Way data is vendored from
+  [ofrohn/d3-celestial](https://github.com/ofrohn/d3-celestial), licensed under
+  BSD-3-Clause. The copied files live in `public/vendor/d3-celestial/`, including
+  the upstream `LICENSE`.
+- [typpo/spacekit](https://github.com/typpo/spacekit) is a useful MIT-licensed
+  Three.js reference for larger-scale solar-system and particle visualization,
+  but it is not imported into this app.
+- [slowe/VirtualSky](https://github.com/slowe/VirtualSky) is a useful
+  planetarium/math reference, but this app keeps `astronomy-engine` as the local
+  astrometry engine instead of copying VirtualSky code.
+- [Stellarium Web Engine](https://github.com/Stellarium/stellarium-web-engine)
+  is useful as a correctness benchmark, but it is not vendored because its
+  AGPL-style licensing and engine scope are not a fit for this lightweight R3F
+  prototype.
+
 ## Development
 
 ```bash

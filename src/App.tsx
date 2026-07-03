@@ -10,6 +10,10 @@ import {
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { StarfieldExperience } from './components/StarfieldExperience'
 import { computeHorizonStars, formatUtc } from './lib/astro'
+import {
+  loadD3CelestialCatalog,
+  type CelestialCatalog,
+} from './lib/celestialCatalog'
 import type { ExperienceStage, LocationTarget } from './types'
 
 const DEFAULT_LOCATION: LocationTarget = {
@@ -57,6 +61,8 @@ function App() {
   })
   const [diveSignal, setDiveSignal] = useState(0)
   const [utcDate, setUtcDate] = useState(() => new Date())
+  const [catalog, setCatalog] = useState<CelestialCatalog | null>(null)
+  const [catalogError, setCatalogError] = useState<string | null>(null)
 
   useEffect(() => {
     const timer = window.setInterval(() => setUtcDate(new Date()), 1000)
@@ -64,12 +70,38 @@ function App() {
     return () => window.clearInterval(timer)
   }, [])
 
+  useEffect(() => {
+    let active = true
+
+    loadD3CelestialCatalog()
+      .then((nextCatalog) => {
+        if (active) {
+          setCatalog(nextCatalog)
+        }
+      })
+      .catch((error: unknown) => {
+        if (active) {
+          setCatalogError(
+            error instanceof Error ? error.message : 'Failed to load catalog',
+          )
+        }
+      })
+
+    return () => {
+      active = false
+    }
+  }, [])
+
+  const skyDate = useMemo(() => floorUtcToMinute(utcDate), [utcDate])
+
   const visibleStars = useMemo(
     () =>
-      computeHorizonStars(target, utcDate)
-        .filter((star) => star.visible)
-        .slice(0, 5),
-    [target, utcDate],
+      catalog
+        ? computeHorizonStars(target, skyDate, catalog.stars)
+            .filter((star) => star.visible)
+            .slice(0, 5)
+        : [],
+    [catalog, skyDate, target],
   )
 
   const selectLocation = (location: LocationTarget) => {
@@ -124,12 +156,13 @@ function App() {
   return (
     <main className="relative h-dvh w-dvw overflow-hidden bg-[#02050c] text-slate-100">
       <StarfieldExperience
+        catalog={catalog}
         diveSignal={diveSignal}
         onStageChange={setStage}
         onTargetChange={handleTargetChange}
         stage={stage}
         target={target}
-        utcDate={utcDate}
+        utcDate={skyDate}
       />
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_35%,rgba(42,170,255,0.14),transparent_36%),linear-gradient(180deg,rgba(2,5,12,0)_60%,rgba(2,5,12,0.84)_100%)]" />
       <section className="pointer-events-none absolute inset-0 grid grid-cols-1 content-between gap-4 p-4 sm:p-5 lg:grid-cols-[360px_1fr_320px]">
@@ -262,6 +295,16 @@ function App() {
             <Sparkles className="size-5 text-cyan-200" />
           </div>
           <div className="mt-4 space-y-2">
+            {catalogError ? (
+              <div className="rounded-md border border-red-300/20 bg-red-300/10 px-3 py-2 text-sm text-red-100">
+                {catalogError}
+              </div>
+            ) : null}
+            {!catalog && !catalogError ? (
+              <div className="rounded-md border border-white/8 bg-white/[0.045] px-3 py-2 text-sm text-slate-300">
+                Loading d3-celestial catalog
+              </div>
+            ) : null}
             {visibleStars.map((star) => (
               <div
                 className="grid grid-cols-[1fr_auto] gap-2 rounded-md border border-white/8 bg-white/[0.045] px-3 py-2"
@@ -269,7 +312,7 @@ function App() {
               >
                 <div>
                   <div className="text-sm font-medium text-white">
-                    {star.name}
+                    {star.displayName}
                   </div>
                   <div className="text-xs text-slate-400">
                     {star.constellation}
@@ -324,6 +367,13 @@ function normalizeLongitude(value: number): number {
   const normalized = ((((value + 180) % 360) + 360) % 360) - 180
 
   return normalized === -180 ? 180 : normalized
+}
+
+function floorUtcToMinute(date: Date): Date {
+  const nextDate = new Date(date)
+  nextDate.setUTCSeconds(0, 0)
+
+  return nextDate
 }
 
 export default App

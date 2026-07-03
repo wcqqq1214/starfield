@@ -1,10 +1,10 @@
 import { Horizon, Observer } from 'astronomy-engine'
 import { MathUtils, Vector3 } from 'three'
-import { BRIGHT_STARS, type BrightStar } from '../data/brightStars'
+import type { CatalogStar, EquatorialPolyline } from './celestialCatalog'
 import type { SurfaceFrame } from './geo'
 import type { LocationTarget } from '../types'
 
-export type HorizonStar = BrightStar & {
+export type HorizonStar = CatalogStar & {
   altitude: number
   azimuth: number
   brightness: number
@@ -14,10 +14,11 @@ export type HorizonStar = BrightStar & {
 export function computeHorizonStars(
   location: Pick<LocationTarget, 'lat' | 'lon'>,
   utcDate: Date,
+  stars: readonly CatalogStar[],
 ): HorizonStar[] {
   const observer = new Observer(location.lat, location.lon, 0)
 
-  return BRIGHT_STARS.map((star) => {
+  return stars.map((star) => {
     const horizontal = Horizon(
       utcDate,
       observer,
@@ -40,6 +41,44 @@ export function computeHorizonStars(
     }
 
     return a.magnitude - b.magnitude
+  })
+}
+
+export function computeHorizonPolylines(
+  location: Pick<LocationTarget, 'lat' | 'lon'>,
+  utcDate: Date,
+  frame: SurfaceFrame,
+  polylines: readonly EquatorialPolyline[],
+  radius: number,
+  minAltitude = -2,
+): Vector3[][] {
+  const observer = new Observer(location.lat, location.lon, 0)
+
+  return polylines.flatMap((polyline) => {
+    const points = polyline.points
+      .map((point) => {
+        const horizontal = Horizon(
+          utcDate,
+          observer,
+          point.raDeg / 15,
+          point.decDeg,
+          'normal',
+        )
+
+        if (horizontal.altitude < minAltitude) {
+          return null
+        }
+
+        return horizonToWorldPosition(
+          frame,
+          horizontal.azimuth,
+          horizontal.altitude,
+          radius,
+        )
+      })
+      .filter((point): point is Vector3 => point !== null)
+
+    return points.length >= 2 ? [points] : []
   })
 }
 
