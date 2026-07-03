@@ -230,14 +230,14 @@ function App() {
   )
 
   const citySuggestions = useMemo(() => {
-    const query = citySearch.trim().toLowerCase()
+    const query = normalizeSearchText(citySearch)
 
     if (!query) {
       return []
     }
 
     return CITY_LOCATIONS.filter((location) =>
-      `${location.name} ${location.note}`.toLowerCase().includes(query),
+      matchesCityWordPrefix(location.name, query),
     ).slice(0, 5)
   }, [citySearch])
 
@@ -578,6 +578,22 @@ function Metric({ icon, label, value }: MetricProps) {
       <div className="mt-1 truncate text-sm font-medium text-white">{value}</div>
     </div>
   )
+}
+
+function matchesCityWordPrefix(cityName: string, query: string): boolean {
+  const normalizedName = normalizeSearchText(cityName)
+
+  if (normalizedName.startsWith(query)) {
+    return true
+  }
+
+  return normalizedName
+    .split(/[\s-]+/)
+    .some((word) => word.startsWith(query))
+}
+
+function normalizeSearchText(value: string): string {
+  return value.trim().toLowerCase().replace(/\s+/g, ' ')
 }
 
 function clampNumber(value: number, min: number, max: number): number {
