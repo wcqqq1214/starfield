@@ -36,8 +36,10 @@ hemisphere onto a flat planisphere.
   intentionally disabled for the current clean-sky prototype.
 - City search uses a curated local config in `src/data/cities.ts`. Coordinates
   are derived from the [GeoNames](https://www.geonames.org/) city dump
-  (Creative Commons Attribution) and trimmed to Chinese provincial capitals and
-  above plus major global cities; the full GeoNames dump is not vendored.
+  (Creative Commons Attribution). China is trimmed to provincial capitals and
+  above; other countries include national capitals, cities with population of at
+  least 300,000, and first-level administrative capitals above 50,000. The full
+  GeoNames dump is not vendored.
 - [typpo/spacekit](https://github.com/typpo/spacekit) is a useful MIT-licensed
   Three.js reference for larger-scale solar-system and particle visualization,
   but it is not imported into this app.

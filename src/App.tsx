@@ -255,7 +255,7 @@ function App() {
                         ? 'bg-cyan-300/12 text-cyan-50'
                         : ''
                     }`}
-                    key={location.name}
+                    key={`${location.name}-${location.note}-${location.lat}-${location.lon}`}
                     onMouseDown={(event) => {
                       event.preventDefault()
                       selectLocation(location)
