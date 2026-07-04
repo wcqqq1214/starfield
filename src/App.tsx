@@ -17,7 +17,7 @@ import {
   loadD3CelestialCatalog,
   type CelestialCatalog,
 } from './lib/celestialCatalog'
-import type { ExperienceStage, LocationTarget, SkyMode } from './types'
+import type { ExperienceStage, LocationTarget } from './types'
 
 function App() {
   const [stage, setStage] = useState<ExperienceStage>('EARTH')
@@ -30,7 +30,7 @@ function App() {
   const [citySearchOpen, setCitySearchOpen] = useState(false)
   const [activeCitySuggestionIndex, setActiveCitySuggestionIndex] = useState(0)
   const [locationOpen, setLocationOpen] = useState(true)
-  const [skyMode, setSkyMode] = useState<SkyMode>('PURE')
+  const [starPanelOpen, setStarPanelOpen] = useState(false)
   const [selectedStarId, setSelectedStarId] = useState<string | null>(null)
   const [hoveredStarId, setHoveredStarId] = useState<string | null>(null)
   const [skySignal, setSkySignal] = useState(0)
@@ -147,7 +147,7 @@ function App() {
     }
 
     resolveFormTarget()
-    setSkyMode('PURE')
+    setStarPanelOpen(false)
     setSelectedStarId(null)
     setHoveredStarId(null)
     setSkySignal((value) => value + 1)
@@ -155,7 +155,7 @@ function App() {
 
   const resetToEarth = () => {
     setStage('EARTH')
-    setSkyMode('PURE')
+    setStarPanelOpen(false)
     setSelectedStarId(null)
     setHoveredStarId(null)
   }
@@ -176,23 +176,22 @@ function App() {
     setHoveredStarId(null)
   }
 
-  const handleSkyModeChange = (nextMode: SkyMode) => {
-    setSkyMode(nextMode)
-
-    if (nextMode === 'PURE') {
-      setSelectedStarId(null)
-      setHoveredStarId(null)
-    }
+  const collapseStarPanel = () => {
+    setStarPanelOpen(false)
+    setSelectedStarId(null)
+    setHoveredStarId(null)
   }
 
   const handleStarSelect = (starId: string) => {
-    setSkyMode('INTERACTIVE')
+    setStarPanelOpen(true)
     setSelectedStarId(starId)
   }
 
   const showLocationPanel = stage === 'EARTH'
-  const showStarPanel = stage === 'SKY' && skyMode === 'INTERACTIVE'
-  const highlightedStarId = hoveredStarId ?? selectedStarId
+  const showStarPanel = stage === 'SKY'
+  const highlightedStarId = starPanelOpen
+    ? hoveredStarId ?? selectedStarId
+    : null
 
   return (
     <main className="relative h-dvh w-dvw overflow-hidden bg-[#02050c] text-slate-100">
@@ -218,7 +217,6 @@ function App() {
           >
             <ArrowLeft className="size-4" />
           </button>
-          <SkyModeSwitch mode={skyMode} onChange={handleSkyModeChange} />
         </div>
       ) : null}
       <section className="pointer-events-none absolute inset-0 grid grid-cols-[360px_1fr_320px] content-start gap-4 p-5">
@@ -414,63 +412,62 @@ function App() {
             initial={{ opacity: 0, x: 16 }}
             transition={{ delay: 0.16, duration: 0.45, ease: 'easeOut' }}
           >
-            {selectedStar ? (
-              <StarDetails
-                onBack={() => setSelectedStarId(null)}
-                star={selectedStar}
-              />
-            ) : (
-              <StarList
-                catalogError={catalogError}
-                loading={!catalog && !catalogError}
-                onHover={setHoveredStarId}
-                onSelect={handleStarSelect}
-                selectedStarId={selectedStarId}
-                stars={visibleStars}
-              />
-            )}
+            <button
+              aria-expanded={starPanelOpen}
+              aria-label={
+                starPanelOpen ? 'Collapse star panel' : 'Expand star panel'
+              }
+              className="flex w-full items-center justify-between gap-3 text-left"
+              onClick={() => {
+                if (starPanelOpen) {
+                  collapseStarPanel()
+                } else {
+                  setStarPanelOpen(true)
+                }
+              }}
+              type="button"
+            >
+              <span className="min-w-0">
+                <span className="block text-xs font-medium uppercase text-slate-400">
+                  Featured stars
+                </span>
+                <span className="mt-1 block truncate text-lg font-semibold tracking-normal text-white">
+                  {selectedStar ? selectedStar.displayName : 'Bright tonight'}
+                </span>
+              </span>
+              <span className="inline-flex items-center gap-2 text-cyan-200">
+                <Sparkles className="size-5" />
+                {starPanelOpen ? (
+                  <ChevronUp className="size-4" />
+                ) : (
+                  <ChevronDown className="size-4" />
+                )}
+              </span>
+            </button>
+
+            {starPanelOpen ? (
+              <div className="mt-4">
+                {selectedStar ? (
+                  <StarDetails
+                    onBack={() => setSelectedStarId(null)}
+                    star={selectedStar}
+                  />
+                ) : (
+                  <StarList
+                    catalogError={catalogError}
+                    loading={!catalog && !catalogError}
+                    onHover={setHoveredStarId}
+                    onSelect={handleStarSelect}
+                    selectedStarId={selectedStarId}
+                    stars={visibleStars}
+                  />
+                )}
+              </div>
+            ) : null}
           </motion.aside>
         ) : null}
       </section>
     </main>
-  )
-}
-
-type SkyModeSwitchProps = {
-  mode: SkyMode
-  onChange: (mode: SkyMode) => void
-}
-
-function SkyModeSwitch({ mode, onChange }: SkyModeSwitchProps) {
-  const interactive = mode === 'INTERACTIVE'
-
-  return (
-    <button
-      aria-label={`Switch to ${interactive ? 'Pure' : 'Explore'} mode`}
-      aria-pressed={interactive}
-      className="pointer-events-auto inline-grid h-10 w-36 grid-cols-2 rounded-full border border-white/12 bg-[#07111f]/72 p-1 text-xs font-semibold text-slate-100 shadow-2xl shadow-black/30 backdrop-blur-xl transition hover:border-cyan-300/45 hover:bg-[#0a1728]/82"
-      onClick={() => onChange(interactive ? 'PURE' : 'INTERACTIVE')}
-      type="button"
-    >
-      <span
-        className={`inline-flex items-center justify-center rounded-full transition ${
-          interactive
-            ? 'text-slate-300'
-            : 'bg-cyan-300 text-slate-950 shadow-lg shadow-cyan-950/30'
-        }`}
-      >
-        Pure
-      </span>
-      <span
-        className={`inline-flex items-center justify-center rounded-full transition ${
-          interactive
-            ? 'bg-cyan-300 text-slate-950 shadow-lg shadow-cyan-950/30'
-            : 'text-slate-300'
-        }`}
-      >
-        Explore
-      </span>
-    </button>
   )
 }
 
@@ -492,39 +489,28 @@ function StarList({
   onSelect,
 }: StarListProps) {
   return (
-    <>
-      <div className="min-w-0">
-        <div className="flex items-center gap-2 text-xs font-medium uppercase text-slate-400">
-          <Sparkles className="size-4" />
-          Featured stars
+    <div className="space-y-2">
+      {catalogError ? (
+        <div className="rounded-md border border-red-300/20 bg-red-300/10 px-3 py-2 text-sm text-red-100">
+          {catalogError}
         </div>
-        <div className="mt-1 truncate text-lg font-semibold tracking-normal text-white">
-          Bright tonight
+      ) : null}
+      {loading ? (
+        <div className="rounded-md border border-white/8 bg-white/[0.045] px-3 py-2 text-sm text-slate-300">
+          Loading d3-celestial catalog
         </div>
-      </div>
-      <div className="mt-4 space-y-2">
-        {catalogError ? (
-          <div className="rounded-md border border-red-300/20 bg-red-300/10 px-3 py-2 text-sm text-red-100">
-            {catalogError}
-          </div>
-        ) : null}
-        {loading ? (
-          <div className="rounded-md border border-white/8 bg-white/[0.045] px-3 py-2 text-sm text-slate-300">
-            Loading d3-celestial catalog
-          </div>
-        ) : null}
-        {stars.map((star) => (
-          <StarSummary
-            key={star.id}
-            onSelect={() => onSelect(star.id)}
-            onHover={() => onHover(star.id)}
-            onUnhover={() => onHover(null)}
-            selected={star.id === selectedStarId}
-            star={star}
-          />
-        ))}
-      </div>
-    </>
+      ) : null}
+      {stars.map((star) => (
+        <StarSummary
+          key={star.id}
+          onSelect={() => onSelect(star.id)}
+          onHover={() => onHover(star.id)}
+          onUnhover={() => onHover(null)}
+          selected={star.id === selectedStarId}
+          star={star}
+        />
+      ))}
+    </div>
   )
 }
 
