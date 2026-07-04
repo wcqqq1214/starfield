@@ -1,3 +1,5 @@
+import { BRIGHT_STAR_DISTANCES_LY } from '../data/starDistances'
+
 export type CatalogStar = {
   id: string
   displayName: string
@@ -74,6 +76,7 @@ function mapStars(stars: D3Stars, names: D3StarNames): CatalogStar[] {
       const bv = Number.parseFloat(feature.properties.bv ?? '')
       const displayName = getStarDisplayName(id, metadata)
       const constellation = metadata?.c?.trim() || 'Unknown'
+      const distanceLy = BRIGHT_STAR_DISTANCES_LY[id]
 
       return {
         id,
@@ -84,6 +87,7 @@ function mapStars(stars: D3Stars, names: D3StarNames): CatalogStar[] {
         decDeg,
         magnitude: feature.properties.mag,
         color: bvToColor(Number.isFinite(bv) ? bv : 0.55),
+        ...(distanceLy === undefined ? {} : { distanceLy }),
       }
     })
     .sort((a, b) => a.magnitude - b.magnitude)
