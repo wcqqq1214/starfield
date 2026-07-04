@@ -8,9 +8,18 @@ Credit: NASA/Goddard Space Flight Center Scientific Visualization Studio. Blue M
 NASA deep-sky image sources
 
 Files:
+- deep-sky/m1-crab.webp
+  Source page: https://science.nasa.gov/mission/hubble/science/explore-the-night-sky/hubble-messier-catalog/messier-1/
+  Direct asset: https://science.nasa.gov/wp-content/uploads/2023/04/crab-nebula-mosaic-jpg.webp
 - deep-sky/m13-hercules.webp
   Source page: https://science.nasa.gov/mission/hubble/science/explore-the-night-sky/hubble-messier-catalog/messier-13/
   Direct asset: https://assets.science.nasa.gov/content/dam/science/missions/hubble/stars/globular-clusters/Hubble_M13_2010_potw1011a.jpg/jcr:content/renditions/cq5dam.web.1280.1280.jpeg
+- deep-sky/m16-eagle.webp
+  Source page: https://science.nasa.gov/mission/hubble/science/explore-the-night-sky/hubble-messier-catalog/messier-16/
+  Direct asset: https://science.nasa.gov/wp-content/uploads/2023/04/hubble_birthofstars_0-jpg.webp
+- deep-sky/m20-trifid.webp
+  Source page: https://science.nasa.gov/mission/hubble/science/explore-the-night-sky/hubble-messier-catalog/messier-20/
+  Direct asset: https://assets.science.nasa.gov/content/dam/science/missions/hubble/nebulae/emission/hubble_2026_trifid.jpg/jcr:content/renditions/cq5dam.web.1280.1280.jpeg
 - deep-sky/m27-dumbbell.webp
   Source page: https://science.nasa.gov/image-detail/close-up-of-m27-the-dumbbell-nebula/
   Direct asset: https://science.nasa.gov/wp-content/uploads/2023/04/opo0306a-jpg.webp
@@ -23,11 +32,26 @@ Files:
 - deep-sky/m45-pleiades.webp
   Source page: https://science.nasa.gov/mission/hubble/science/explore-the-night-sky/hubble-messier-catalog/messier-45/
   Direct asset: https://science.nasa.gov/wp-content/uploads/2023/04/interstellar_cloud_in_pleiades-jpg.webp
+- deep-sky/m51-whirlpool.webp
+  Source page: https://science.nasa.gov/mission/hubble/science/explore-the-night-sky/hubble-messier-catalog/messier-51/
+  Direct asset: https://science.nasa.gov/wp-content/uploads/2023/04/m51-and-companion_0-jpg.webp
 - deep-sky/m57-ring.webp
   Source page: https://science.nasa.gov/image-detail/ring-nebula-full_jpg/
   Direct asset: https://science.nasa.gov/wp-content/uploads/2023/04/ring-nebula-full_jpg-jpg.webp
 - deep-sky/m8-lagoon.webp
   Source page: https://science.nasa.gov/mission/hubble/science/explore-the-night-sky/hubble-messier-catalog/messier-8/
   Direct asset: https://assets.science.nasa.gov/content/dam/science/missions/hubble/nebulae/emission/Hubble_M8_ACS_1_flat_FINAL.jpg/jcr:content/renditions/cq5dam.web.1280.1280.jpeg
+- deep-sky/m81-bode.webp
+  Source page: https://science.nasa.gov/mission/hubble/science/explore-the-night-sky/hubble-messier-catalog/messier-81/
+  Direct asset: https://science.nasa.gov/wp-content/uploads/2023/04/m81-print-jpg.webp
+- deep-sky/m82-cigar.webp
+  Source page: https://science.nasa.gov/mission/hubble/science/explore-the-night-sky/hubble-messier-catalog/messier-82/
+  Direct asset: https://science.nasa.gov/wp-content/uploads/2023/04/m82-jpg.webp
+- deep-sky/m101-pinwheel.webp
+  Source page: https://science.nasa.gov/mission/hubble/science/explore-the-night-sky/hubble-messier-catalog/messier-101/
+  Direct asset: https://assets.science.nasa.gov/content/dam/science/missions/hubble/galaxies/spiral/M101_HST_MIRI_V3_flat_FINAL_NewImage.jpg/jcr:content/renditions/cq5dam.web.1280.1280.jpeg
+- deep-sky/m104-sombrero.webp
+  Source page: https://science.nasa.gov/mission/hubble/science/explore-the-night-sky/hubble-messier-catalog/messier-104/
+  Direct asset: https://science.nasa.gov/wp-content/uploads/2023/04/sombrero-galaxy-hubble-jpg.webp
 
 Credit: NASA, ESA, and the Hubble Heritage Team where applicable; see each NASA source page for object-specific credits.

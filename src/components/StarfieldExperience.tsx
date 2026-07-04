@@ -24,6 +24,8 @@ import {
 import {
   computeHorizonObjects,
   computeHorizonStars,
+  createHorizonProjector,
+  type HorizonProjector,
   type HorizonObject,
   type HorizonStar,
 } from '../lib/astro'
@@ -60,6 +62,9 @@ const SKY_CHART_CAMERA = new Vector3(0, 0, 7)
 const STAR_WHITE = new Color('#f8fbff')
 
 type HorizonDeepSkyObject = HorizonObject<DeepSkyObject>
+type OrientedHorizonDeepSkyObject = HorizonDeepSkyObject & {
+  skyNorthAngleDeg: number
+}
 type PlanispherePoint = Pick<HorizonStar, 'altitude' | 'azimuth'>
 
 const STAR_VERTEX_SHADER = `
@@ -458,12 +463,7 @@ function LocalSky({
     [activeLocation, catalog.stars, utcDate],
   )
   const deepSkyObjects = useMemo(
-    () =>
-      computeHorizonObjects(
-        activeLocation,
-        utcDate,
-        DEEP_SKY_OBJECTS,
-      ).filter((object) => object.visible),
+    () => computeVisibleDeepSkyObjects(activeLocation, utcDate),
     [activeLocation, utcDate],
   )
 
@@ -479,7 +479,7 @@ function LocalSky({
 }
 
 type PlanisphereDeepSkyLayerProps = {
-  objects: HorizonDeepSkyObject[]
+  objects: OrientedHorizonDeepSkyObject[]
 }
 
 function PlanisphereDeepSkyLayer({ objects }: PlanisphereDeepSkyLayerProps) {
@@ -493,7 +493,7 @@ function PlanisphereDeepSkyLayer({ objects }: PlanisphereDeepSkyLayerProps) {
 }
 
 type DeepSkyGlowProps = {
-  object: HorizonDeepSkyObject
+  object: OrientedHorizonDeepSkyObject
 }
 
 function DeepSkyGlow({ object }: DeepSkyGlowProps) {
@@ -546,7 +546,10 @@ function DeepSkyGlow({ object }: DeepSkyGlowProps) {
 
   return (
     <group position={[position[0], position[1], 0.02]}>
-      <mesh rotation={[0, 0, MathUtils.degToRad(object.rotationDeg)]} scale={scale}>
+      <mesh
+        rotation={[0, 0, MathUtils.degToRad(object.skyNorthAngleDeg + object.rotationDeg)]}
+        scale={scale}
+      >
         <planeGeometry args={[2, 2, 1, 1]} />
         <shaderMaterial
           blending={AdditiveBlending}
@@ -680,6 +683,43 @@ function getPlanispherePosition(point: PlanispherePoint): [number, number, numbe
   const azimuth = MathUtils.degToRad(point.azimuth)
 
   return [Math.sin(azimuth) * radius, Math.cos(azimuth) * radius, 0]
+}
+
+function computeVisibleDeepSkyObjects(
+  activeLocation: ActiveLocation,
+  utcDate: Date,
+): OrientedHorizonDeepSkyObject[] {
+  const projector = createHorizonProjector(activeLocation, utcDate)
+
+  return computeHorizonObjects(
+    activeLocation,
+    utcDate,
+    DEEP_SKY_OBJECTS,
+  ).filter((object) => object.visible).map((object) => ({
+    ...object,
+    skyNorthAngleDeg: getProjectedNorthAngle(object, projector),
+  }))
+}
+
+function getProjectedNorthAngle(
+  object: HorizonDeepSkyObject,
+  projector: HorizonProjector,
+): number {
+  const decStep = object.decDeg > 89.4 ? -0.35 : 0.35
+  const northPoint = projector.toHorizontal({
+    decDeg: MathUtils.clamp(object.decDeg + decStep, -89.8, 89.8),
+    raDeg: object.raDeg,
+  })
+  const center = getPlanispherePosition(object)
+  const north = getPlanispherePosition(northPoint)
+  const dx = north[0] - center[0]
+  const dy = north[1] - center[1]
+
+  if (Math.abs(dx) + Math.abs(dy) < 0.0001) {
+    return 0
+  }
+
+  return Math.atan2(-dx, dy) * MathUtils.RAD2DEG
 }
 
 function getDeepSkySize(object: HorizonDeepSkyObject): number {
