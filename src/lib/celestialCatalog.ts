@@ -7,6 +7,7 @@ export type CatalogStar = {
   decDeg: number
   magnitude: number
   color: string
+  distanceLy?: number
 }
 
 export type CelestialCatalog = {

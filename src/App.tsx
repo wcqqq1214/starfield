@@ -1,23 +1,23 @@
 import { motion } from 'framer-motion'
 import {
+  ArrowLeft,
   ChevronDown,
   ChevronUp,
-  Compass,
   Globe2,
   LocateFixed,
   RotateCcw,
   Search,
   Sparkles,
 } from 'lucide-react'
-import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { StarfieldExperience } from './components/StarfieldExperience'
 import { CITY_LOCATIONS, DEFAULT_CITY } from './data/cities'
-import { computeHorizonStars, formatUtc } from './lib/astro'
+import { computeHorizonStars, type HorizonStar } from './lib/astro'
 import {
   loadD3CelestialCatalog,
   type CelestialCatalog,
 } from './lib/celestialCatalog'
-import type { ExperienceStage, LocationTarget } from './types'
+import type { ExperienceStage, LocationTarget, SkyMode } from './types'
 
 function App() {
   const [stage, setStage] = useState<ExperienceStage>('EARTH')
@@ -30,7 +30,9 @@ function App() {
   const [citySearchOpen, setCitySearchOpen] = useState(false)
   const [activeCitySuggestionIndex, setActiveCitySuggestionIndex] = useState(0)
   const [locationOpen, setLocationOpen] = useState(true)
-  const [computedOpen, setComputedOpen] = useState(false)
+  const [skyMode, setSkyMode] = useState<SkyMode>('PURE')
+  const [selectedStarId, setSelectedStarId] = useState<string | null>(null)
+  const [hoveredStarId, setHoveredStarId] = useState<string | null>(null)
   const [skySignal, setSkySignal] = useState(0)
   const [utcDate, setUtcDate] = useState(() => new Date())
   const [catalog, setCatalog] = useState<CelestialCatalog | null>(null)
@@ -67,15 +69,31 @@ function App() {
   const skyMinute = Math.floor(utcDate.getTime() / 60_000)
   const skyDate = useMemo(() => new Date(skyMinute * 60_000), [skyMinute])
 
-  const visibleStars = useMemo(
-    () =>
-      catalog
-        ? computeHorizonStars(target, skyDate, catalog.stars)
-            .filter((star) => star.visible)
-            .slice(0, 5)
-        : [],
+  const horizonStars = useMemo(
+    () => (catalog ? computeHorizonStars(target, skyDate, catalog.stars) : []),
     [catalog, skyDate, target],
   )
+  const visibleStars = useMemo(
+    () => horizonStars.filter((star) => star.visible).slice(0, 5),
+    [horizonStars],
+  )
+  const selectedStar = useMemo(
+    () =>
+      selectedStarId
+        ? horizonStars.find(
+            (star) => star.id === selectedStarId && star.visible,
+          ) ?? null
+        : null,
+    [horizonStars, selectedStarId],
+  )
+
+  useEffect(() => {
+    if (!selectedStarId || selectedStar) {
+      return
+    }
+
+    setSelectedStarId(null)
+  }, [selectedStar, selectedStarId])
 
   const citySuggestions = useMemo(() => {
     const query = normalizeSearchText(citySearch)
@@ -129,11 +147,17 @@ function App() {
     }
 
     resolveFormTarget()
+    setSkyMode('PURE')
+    setSelectedStarId(null)
+    setHoveredStarId(null)
     setSkySignal((value) => value + 1)
   }
 
   const resetToEarth = () => {
     setStage('EARTH')
+    setSkyMode('PURE')
+    setSelectedStarId(null)
+    setHoveredStarId(null)
   }
 
   const handleTargetChange = (nextTarget: LocationTarget) => {
@@ -148,12 +172,33 @@ function App() {
         : '',
     )
     setActiveCitySuggestionIndex(0)
+    setSelectedStarId(null)
+    setHoveredStarId(null)
   }
+
+  const handleSkyModeChange = (nextMode: SkyMode) => {
+    setSkyMode(nextMode)
+
+    if (nextMode === 'PURE') {
+      setSelectedStarId(null)
+      setHoveredStarId(null)
+    }
+  }
+
+  const handleStarSelect = (starId: string) => {
+    setSkyMode('INTERACTIVE')
+    setSelectedStarId(starId)
+  }
+
+  const showLocationPanel = stage === 'EARTH'
+  const showStarPanel = stage === 'SKY' && skyMode === 'INTERACTIVE'
+  const highlightedStarId = hoveredStarId ?? selectedStarId
 
   return (
     <main className="relative h-dvh w-dvw overflow-hidden bg-[#02050c] text-slate-100">
       <StarfieldExperience
         catalog={catalog}
+        highlightedStarId={highlightedStarId}
         onStageChange={setStage}
         onTargetChange={handleTargetChange}
         skySignal={skySignal}
@@ -162,13 +207,28 @@ function App() {
         utcDate={skyDate}
       />
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_35%,rgba(42,170,255,0.14),transparent_36%),linear-gradient(180deg,rgba(2,5,12,0)_60%,rgba(2,5,12,0.84)_100%)]" />
-      <section className="pointer-events-none absolute inset-0 grid grid-cols-1 content-between gap-4 p-4 sm:p-5 lg:grid-cols-[360px_1fr_320px]">
-        <motion.aside
-          animate={{ opacity: 1, x: 0 }}
-          className="pointer-events-auto max-w-full self-start rounded-lg border border-white/12 bg-[#07111f]/72 p-4 shadow-2xl shadow-black/30 backdrop-blur-xl"
-          initial={{ opacity: 0, x: -16 }}
-          transition={{ duration: 0.45, ease: 'easeOut' }}
-        >
+      {stage === 'SKY' ? (
+        <div className="pointer-events-none absolute left-5 top-5 z-10 flex items-center gap-2">
+          <button
+            aria-label="Exit sky view"
+            className="pointer-events-auto inline-flex size-10 items-center justify-center rounded-full border border-white/12 bg-[#07111f]/72 text-slate-100 shadow-2xl shadow-black/30 backdrop-blur-xl transition hover:border-cyan-300/45 hover:bg-[#0a1728]/82"
+            onClick={resetToEarth}
+            title="Exit sky view"
+            type="button"
+          >
+            <ArrowLeft className="size-4" />
+          </button>
+          <SkyModeSwitch mode={skyMode} onChange={handleSkyModeChange} />
+        </div>
+      ) : null}
+      <section className="pointer-events-none absolute inset-0 grid grid-cols-[360px_1fr_320px] content-start gap-4 p-5">
+        {showLocationPanel ? (
+          <motion.aside
+            animate={{ opacity: 1, x: 0 }}
+            className="pointer-events-auto max-w-full self-start rounded-lg border border-white/12 bg-[#07111f]/72 p-4 shadow-2xl shadow-black/30 backdrop-blur-xl"
+            initial={{ opacity: 0, x: -16 }}
+            transition={{ duration: 0.45, ease: 'easeOut' }}
+          >
           <button
             aria-expanded={locationOpen}
             aria-label={
@@ -344,115 +404,276 @@ function App() {
               </div>
             </div>
           ) : null}
-        </motion.aside>
+          </motion.aside>
+        ) : null}
 
-        <motion.div
-          animate={{ opacity: 1, y: 0 }}
-          className="pointer-events-auto mx-auto hidden w-full max-w-md self-start rounded-lg border border-white/10 bg-[#07111f]/54 px-4 py-3 shadow-2xl shadow-black/25 backdrop-blur-xl md:block"
-          initial={{ opacity: 0, y: -14 }}
-          transition={{ delay: 0.1, duration: 0.45, ease: 'easeOut' }}
-        >
-          <div className="grid grid-cols-2 gap-3 text-sm">
-            <Metric
-              icon={<Compass className="size-4" />}
-              label="Coordinates"
-              value={`${target.lat.toFixed(2)}, ${target.lon.toFixed(2)}`}
-            />
-            <Metric
-              icon={<Sparkles className="size-4" />}
-              label="UTC"
-              value={formatUtc(utcDate).slice(11, 19)}
-            />
-          </div>
-        </motion.div>
-
-        <motion.aside
-          animate={{ opacity: 1, x: 0 }}
-          className="pointer-events-auto self-end rounded-lg border border-white/12 bg-[#07111f]/72 p-4 shadow-2xl shadow-black/30 backdrop-blur-xl lg:self-start"
-          initial={{ opacity: 0, x: 16 }}
-          transition={{ delay: 0.16, duration: 0.45, ease: 'easeOut' }}
-        >
-          <button
-            aria-expanded={computedOpen}
-            className="flex w-full items-center justify-between gap-3 text-left"
-            onClick={() => setComputedOpen((value) => !value)}
-            type="button"
+        {showStarPanel ? (
+          <motion.aside
+            animate={{ opacity: 1, x: 0 }}
+            className="pointer-events-auto col-start-3 self-start rounded-lg border border-white/12 bg-[#07111f]/72 p-4 shadow-2xl shadow-black/30 backdrop-blur-xl"
+            initial={{ opacity: 0, x: 16 }}
+            transition={{ delay: 0.16, duration: 0.45, ease: 'easeOut' }}
           >
-            <span className="min-w-0">
-              <span className="block text-xs font-medium uppercase text-slate-400">
-                Computed sky
-              </span>
-              <span className="mt-1 block truncate text-lg font-semibold tracking-normal text-white">
-                {computedOpen ? 'Visible bright stars' : `${visibleStars.length} bright stars`}
-              </span>
-            </span>
-            <span className="inline-flex items-center gap-2 text-cyan-200">
-              <Sparkles className="size-5" />
-              {computedOpen ? (
-                <ChevronUp className="size-4" />
-              ) : (
-                <ChevronDown className="size-4" />
-              )}
-            </span>
-          </button>
-
-          {computedOpen ? (
-            <div className="mt-4 space-y-2">
-              {catalogError ? (
-                <div className="rounded-md border border-red-300/20 bg-red-300/10 px-3 py-2 text-sm text-red-100">
-                  {catalogError}
-                </div>
-              ) : null}
-              {!catalog && !catalogError ? (
-                <div className="rounded-md border border-white/8 bg-white/[0.045] px-3 py-2 text-sm text-slate-300">
-                  Loading d3-celestial catalog
-                </div>
-              ) : null}
-              {visibleStars.map((star) => (
-                <div
-                  className="grid grid-cols-[1fr_auto] gap-2 rounded-md border border-white/8 bg-white/[0.045] px-3 py-2"
-                  key={star.id}
-                >
-                  <div>
-                    <div className="text-sm font-medium text-white">
-                      {star.displayName}
-                    </div>
-                    <div className="text-xs text-slate-400">
-                      {star.constellation}
-                    </div>
-                  </div>
-                  <div className="text-right text-xs text-cyan-100">
-                    <div>{star.altitude.toFixed(1)} deg alt</div>
-                    <div className="text-slate-400">
-                      {star.azimuth.toFixed(0)} deg az
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : null}
-        </motion.aside>
+            {selectedStar ? (
+              <StarDetails
+                onBack={() => setSelectedStarId(null)}
+                star={selectedStar}
+              />
+            ) : (
+              <StarList
+                catalogError={catalogError}
+                loading={!catalog && !catalogError}
+                onHover={setHoveredStarId}
+                onSelect={handleStarSelect}
+                selectedStarId={selectedStarId}
+                stars={visibleStars}
+              />
+            )}
+          </motion.aside>
+        ) : null}
       </section>
     </main>
   )
 }
 
-type MetricProps = {
-  icon: ReactNode
+type SkyModeSwitchProps = {
+  mode: SkyMode
+  onChange: (mode: SkyMode) => void
+}
+
+function SkyModeSwitch({ mode, onChange }: SkyModeSwitchProps) {
+  const interactive = mode === 'INTERACTIVE'
+
+  return (
+    <button
+      aria-label={`Switch to ${interactive ? 'Pure' : 'Explore'} mode`}
+      aria-pressed={interactive}
+      className="pointer-events-auto inline-grid h-10 w-36 grid-cols-2 rounded-full border border-white/12 bg-[#07111f]/72 p-1 text-xs font-semibold text-slate-100 shadow-2xl shadow-black/30 backdrop-blur-xl transition hover:border-cyan-300/45 hover:bg-[#0a1728]/82"
+      onClick={() => onChange(interactive ? 'PURE' : 'INTERACTIVE')}
+      type="button"
+    >
+      <span
+        className={`inline-flex items-center justify-center rounded-full transition ${
+          interactive
+            ? 'text-slate-300'
+            : 'bg-cyan-300 text-slate-950 shadow-lg shadow-cyan-950/30'
+        }`}
+      >
+        Pure
+      </span>
+      <span
+        className={`inline-flex items-center justify-center rounded-full transition ${
+          interactive
+            ? 'bg-cyan-300 text-slate-950 shadow-lg shadow-cyan-950/30'
+            : 'text-slate-300'
+        }`}
+      >
+        Explore
+      </span>
+    </button>
+  )
+}
+
+type StarListProps = {
+  catalogError: string | null
+  loading: boolean
+  selectedStarId: string | null
+  stars: HorizonStar[]
+  onHover: (starId: string | null) => void
+  onSelect: (starId: string) => void
+}
+
+function StarList({
+  catalogError,
+  loading,
+  selectedStarId,
+  stars,
+  onHover,
+  onSelect,
+}: StarListProps) {
+  return (
+    <>
+      <div className="min-w-0">
+        <div className="flex items-center gap-2 text-xs font-medium uppercase text-slate-400">
+          <Sparkles className="size-4" />
+          Featured stars
+        </div>
+        <div className="mt-1 truncate text-lg font-semibold tracking-normal text-white">
+          Bright tonight
+        </div>
+      </div>
+      <div className="mt-4 space-y-2">
+        {catalogError ? (
+          <div className="rounded-md border border-red-300/20 bg-red-300/10 px-3 py-2 text-sm text-red-100">
+            {catalogError}
+          </div>
+        ) : null}
+        {loading ? (
+          <div className="rounded-md border border-white/8 bg-white/[0.045] px-3 py-2 text-sm text-slate-300">
+            Loading d3-celestial catalog
+          </div>
+        ) : null}
+        {stars.map((star) => (
+          <StarSummary
+            key={star.id}
+            onSelect={() => onSelect(star.id)}
+            onHover={() => onHover(star.id)}
+            onUnhover={() => onHover(null)}
+            selected={star.id === selectedStarId}
+            star={star}
+          />
+        ))}
+      </div>
+    </>
+  )
+}
+
+type StarSummaryProps = {
+  onSelect: () => void
+  onHover: () => void
+  onUnhover: () => void
+  selected: boolean
+  star: HorizonStar
+}
+
+function StarSummary({
+  onSelect,
+  onHover,
+  onUnhover,
+  selected,
+  star,
+}: StarSummaryProps) {
+  const content = (
+    <>
+      <div>
+        <div className="text-sm font-medium text-white">{star.displayName}</div>
+        <div className="text-xs text-slate-400">{star.constellation}</div>
+      </div>
+      <div className="text-right text-xs text-cyan-100">
+        <div>{formatDegrees(star.altitude, 1)} alt</div>
+        <div className="text-slate-400">{formatDegrees(star.azimuth, 0)} az</div>
+      </div>
+    </>
+  )
+  const className =
+    'grid w-full grid-cols-[1fr_auto] gap-2 rounded-md border px-3 py-2'
+  const stateClass = selected
+    ? 'border-cyan-300/45 bg-cyan-300/13'
+    : 'border-white/8 bg-white/[0.045]'
+
+  return (
+    <button
+      aria-label={`Select ${star.displayName}`}
+      className={`${className} ${stateClass} text-left transition hover:border-cyan-300/35 hover:bg-cyan-300/10`}
+      onBlur={onUnhover}
+      onFocus={onHover}
+      onMouseEnter={onHover}
+      onMouseLeave={onUnhover}
+      onPointerEnter={onHover}
+      onPointerLeave={onUnhover}
+      onClick={onSelect}
+      type="button"
+    >
+      {content}
+    </button>
+  )
+}
+
+type StarDetailsProps = {
+  onBack: () => void
+  star: HorizonStar
+}
+
+function StarDetails({ onBack, star }: StarDetailsProps) {
+  return (
+    <div>
+      <button
+        className="inline-flex h-8 items-center gap-2 rounded-md border border-white/10 bg-white/[0.05] px-2.5 text-xs font-semibold text-slate-200 transition hover:border-cyan-300/45 hover:bg-cyan-300/10"
+        onClick={onBack}
+        type="button"
+      >
+        <ArrowLeft className="size-4" />
+        Back
+      </button>
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="mt-4 truncate text-base font-semibold text-white">
+            {star.displayName}
+          </div>
+          <div className="mt-1 text-xs text-slate-400">
+            {star.constellation}
+          </div>
+        </div>
+      </div>
+
+      <div className="mt-3 grid grid-cols-2 gap-2">
+        <DetailMetric label="Distance" value={formatDistance(star)} />
+        <DetailMetric label="Magnitude" value={star.magnitude.toFixed(2)} />
+        <DetailMetric label="Altitude" value={formatDegrees(star.altitude, 1)} />
+        <DetailMetric label="Azimuth" value={formatDegrees(star.azimuth, 0)} />
+        <DetailMetric label="Right ascension" value={formatRa(star.raHours)} />
+        <DetailMetric
+          label="Declination"
+          value={formatSignedDegrees(star.decDeg)}
+        />
+        <DetailMetric label="Catalog ID" value={`HIP ${star.id}`} />
+        <DetailMetric label="Color" swatch={star.color} value={star.color} />
+      </div>
+    </div>
+  )
+}
+
+type DetailMetricProps = {
   label: string
+  swatch?: string
   value: string
 }
 
-function Metric({ icon, label, value }: MetricProps) {
+function DetailMetric({ label, swatch, value }: DetailMetricProps) {
   return (
-    <div className="min-w-0 rounded-md border border-white/8 bg-white/[0.045] px-3 py-2">
-      <div className="flex items-center gap-2 text-xs font-medium uppercase text-slate-400">
-        {icon}
+    <div className="min-w-0 rounded-md border border-white/8 bg-black/18 px-2.5 py-2">
+      <div className="text-[0.65rem] font-medium uppercase text-slate-500">
         {label}
       </div>
-      <div className="mt-1 truncate text-sm font-medium text-white">{value}</div>
+      <div className="mt-1 flex min-h-5 items-center gap-2 text-sm font-medium text-white">
+        {swatch ? (
+          <span
+            className="size-3 shrink-0 rounded-full border border-white/30"
+            style={{ backgroundColor: swatch }}
+          />
+        ) : null}
+        <span className="min-w-0 truncate">{value}</span>
+      </div>
     </div>
   )
+}
+
+function formatDistance(star: HorizonStar): string {
+  return star.distanceLy
+    ? `${star.distanceLy.toLocaleString(undefined, {
+        maximumFractionDigits: 1,
+      })} ly`
+    : 'Not in catalog'
+}
+
+function formatRa(hours: number): string {
+  const totalMinutes = Math.round(hours * 60)
+  const normalizedHours = Math.floor(totalMinutes / 60) % 24
+  const minutes = totalMinutes % 60
+
+  return `${normalizedHours.toString().padStart(2, '0')}h ${minutes
+    .toString()
+    .padStart(2, '0')}m`
+}
+
+function formatDegrees(value: number, fractionDigits: number): string {
+  return `${value.toFixed(fractionDigits)} deg`
+}
+
+function formatSignedDegrees(value: number): string {
+  const sign = value >= 0 ? '+' : ''
+
+  return `${sign}${formatDegrees(value, 1)}`
 }
 
 function matchesWordPrefix(value: string, query: string): boolean {

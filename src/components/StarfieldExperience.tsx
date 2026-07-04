@@ -31,10 +31,15 @@ import {
   latLonToVector3,
   vector3ToLatLon,
 } from '../lib/geo'
-import type { ActiveLocation, ExperienceStage, LocationTarget } from '../types'
+import type {
+  ActiveLocation,
+  ExperienceStage,
+  LocationTarget,
+} from '../types'
 
 type StarfieldExperienceProps = {
   catalog: CelestialCatalog | null
+  highlightedStarId: string | null
   stage: ExperienceStage
   target: LocationTarget
   skySignal: number
@@ -88,6 +93,7 @@ const STAR_FRAGMENT_SHADER = `
 
 export function StarfieldExperience({
   catalog,
+  highlightedStarId,
   stage,
   target,
   skySignal,
@@ -108,6 +114,7 @@ export function StarfieldExperience({
       <directionalLight color="#5fb0ff" intensity={1.2} position={[-3, 1, -4]} />
       <SceneContent
         catalog={catalog}
+        highlightedStarId={highlightedStarId}
         onStageChange={onStageChange}
         onTargetChange={onTargetChange}
         skySignal={skySignal}
@@ -123,6 +130,7 @@ type SceneContentProps = StarfieldExperienceProps
 
 function SceneContent({
   catalog,
+  highlightedStarId,
   stage,
   target,
   skySignal,
@@ -201,6 +209,7 @@ function SceneContent({
         <LocalSky
           activeLocation={activeLocation}
           catalog={catalog}
+          highlightedStarId={highlightedStarId}
           utcDate={utcDate}
         />
       ) : null}
@@ -367,10 +376,16 @@ function StaticStarShell({ stage }: StaticStarShellProps) {
 type LocalSkyProps = {
   activeLocation: ActiveLocation
   catalog: CelestialCatalog
+  highlightedStarId: string | null
   utcDate: Date
 }
 
-function LocalSky({ activeLocation, catalog, utcDate }: LocalSkyProps) {
+function LocalSky({
+  activeLocation,
+  catalog,
+  highlightedStarId,
+  utcDate,
+}: LocalSkyProps) {
   const stars = useMemo(
     () =>
       computeHorizonStars(activeLocation, utcDate, catalog.stars).filter(
@@ -381,16 +396,23 @@ function LocalSky({ activeLocation, catalog, utcDate }: LocalSkyProps) {
 
   return (
     <group>
-      <PlanisphereStarField stars={stars} />
+      <PlanisphereStarField
+        highlightedStarId={highlightedStarId}
+        stars={stars}
+      />
     </group>
   )
 }
 
 type PlanisphereStarFieldProps = {
+  highlightedStarId: string | null
   stars: HorizonStar[]
 }
 
-function PlanisphereStarField({ stars }: PlanisphereStarFieldProps) {
+function PlanisphereStarField({
+  highlightedStarId,
+  stars,
+}: PlanisphereStarFieldProps) {
   const { colors, intensities, positions, sizes } = useMemo(() => {
     const nextPositions = new Float32Array(stars.length * 3)
     const nextColors = new Float32Array(stars.length * 3)
@@ -399,20 +421,19 @@ function PlanisphereStarField({ stars }: PlanisphereStarFieldProps) {
     const color = new Color()
 
     stars.forEach((star, index) => {
-      const radius = ((90 - star.altitude) / 90) * SKY_CHART_RADIUS
-      const azimuth = MathUtils.degToRad(star.azimuth)
       const magnitudeRank = MathUtils.clamp((6.1 - star.magnitude) / 7.6, 0, 1)
       const brightStar = magnitudeRank ** 1.65
       const horizonFade = MathUtils.smoothstep(star.altitude, 0, 14)
       const colorNeutrality = MathUtils.lerp(0.74, 0.5, magnitudeRank)
+      const position = getPlanispherePosition(star)
 
       color
         .set(star.color)
         .lerp(STAR_WHITE, colorNeutrality)
         .multiplyScalar(MathUtils.lerp(0.88, 1.22, magnitudeRank))
-      nextPositions[index * 3] = Math.sin(azimuth) * radius
-      nextPositions[index * 3 + 1] = Math.cos(azimuth) * radius
-      nextPositions[index * 3 + 2] = 0
+      nextPositions[index * 3] = position[0]
+      nextPositions[index * 3 + 1] = position[1]
+      nextPositions[index * 3 + 2] = position[2]
       nextColors[index * 3] = color.r
       nextColors[index * 3 + 1] = color.g
       nextColors[index * 3 + 2] = color.b
@@ -431,28 +452,75 @@ function PlanisphereStarField({ stars }: PlanisphereStarFieldProps) {
       sizes: nextSizes,
     }
   }, [stars])
+  const highlightedStar = useMemo(
+    () =>
+      highlightedStarId
+        ? stars.find((star) => star.id === highlightedStarId) ?? null
+        : null,
+    [highlightedStarId, stars],
+  )
+  const highlightedPosition = highlightedStar
+    ? getPlanispherePosition(highlightedStar)
+    : null
 
   return (
-    <points>
-      <bufferGeometry>
-        <bufferAttribute attach="attributes-position" args={[positions, 3]} />
-        <bufferAttribute attach="attributes-color" args={[colors, 3]} />
-        <bufferAttribute attach="attributes-aSize" args={[sizes, 1]} />
-        <bufferAttribute
-          attach="attributes-aIntensity"
-          args={[intensities, 1]}
+    <>
+      <points>
+        <bufferGeometry>
+          <bufferAttribute attach="attributes-position" args={[positions, 3]} />
+          <bufferAttribute attach="attributes-color" args={[colors, 3]} />
+          <bufferAttribute attach="attributes-aSize" args={[sizes, 1]} />
+          <bufferAttribute
+            attach="attributes-aIntensity"
+            args={[intensities, 1]}
+          />
+        </bufferGeometry>
+        <shaderMaterial
+          blending={AdditiveBlending}
+          depthWrite={false}
+          fragmentShader={STAR_FRAGMENT_SHADER}
+          transparent
+          vertexColors
+          vertexShader={STAR_VERTEX_SHADER}
         />
-      </bufferGeometry>
-      <shaderMaterial
-        blending={AdditiveBlending}
-        depthWrite={false}
-        fragmentShader={STAR_FRAGMENT_SHADER}
-        transparent
-        vertexColors
-        vertexShader={STAR_VERTEX_SHADER}
-      />
-    </points>
+      </points>
+      {highlightedPosition ? (
+        <group
+          position={[highlightedPosition[0], highlightedPosition[1], 0.04]}
+        >
+          <mesh>
+            <ringGeometry args={[0.052, 0.088, 48]} />
+            <meshBasicMaterial
+              blending={AdditiveBlending}
+              color="#ffffff"
+              depthTest={false}
+              depthWrite={false}
+              opacity={0.95}
+              transparent
+            />
+          </mesh>
+          <mesh>
+            <ringGeometry args={[0.102, 0.168, 56]} />
+            <meshBasicMaterial
+              blending={AdditiveBlending}
+              color="#67e8f9"
+              depthTest={false}
+              depthWrite={false}
+              opacity={0.38}
+              transparent
+            />
+          </mesh>
+        </group>
+      ) : null}
+    </>
   )
+}
+
+function getPlanispherePosition(star: HorizonStar): [number, number, number] {
+  const radius = ((90 - star.altitude) / 90) * SKY_CHART_RADIUS
+  const azimuth = MathUtils.degToRad(star.azimuth)
+
+  return [Math.sin(azimuth) * radius, Math.cos(azimuth) * radius, 0]
 }
 
 function applyPlanisphereCamera(camera: Camera) {
