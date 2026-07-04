@@ -19,11 +19,6 @@ import {
 } from './lib/celestialCatalog'
 import type { ExperienceStage, LocationTarget } from './types'
 
-const STAGE_COPY: Record<ExperienceStage, string> = {
-  EARTH: 'Earth orbit',
-  SKY: 'Local sky',
-}
-
 function App() {
   const [stage, setStage] = useState<ExperienceStage>('EARTH')
   const [target, setTarget] = useState<LocationTarget>(DEFAULT_CITY)
@@ -34,6 +29,7 @@ function App() {
   const [citySearch, setCitySearch] = useState('')
   const [citySearchOpen, setCitySearchOpen] = useState(false)
   const [activeCitySuggestionIndex, setActiveCitySuggestionIndex] = useState(0)
+  const [locationOpen, setLocationOpen] = useState(true)
   const [computedOpen, setComputedOpen] = useState(false)
   const [skySignal, setSkySignal] = useState(0)
   const [utcDate, setUtcDate] = useState(() => new Date())
@@ -173,154 +169,181 @@ function App() {
           initial={{ opacity: 0, x: -16 }}
           transition={{ duration: 0.45, ease: 'easeOut' }}
         >
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <div className="flex items-center gap-2 text-sm font-medium text-cyan-200">
-                <Globe2 className="size-4" />
-                R3F starfield
-              </div>
-              <h1 className="mt-2 text-2xl font-semibold tracking-normal text-white">
-                Earth to local sky
-              </h1>
-            </div>
-            <span className="rounded-md border border-cyan-300/25 bg-cyan-300/10 px-2 py-1 text-xs font-medium text-cyan-100">
-              {STAGE_COPY[stage]}
+          <button
+            aria-expanded={locationOpen}
+            aria-label={
+              locationOpen ? 'Collapse location panel' : 'Expand location panel'
+            }
+            className="flex w-full items-center justify-between gap-3 text-left"
+            onClick={() => {
+              setLocationOpen((value) => !value)
+              setCitySearchOpen(false)
+            }}
+            type="button"
+          >
+            <span className="min-w-0">
+              <span className="block text-xs font-medium uppercase text-slate-400">
+                Location
+              </span>
+              <span className="mt-1 block truncate text-lg font-semibold tracking-normal text-white">
+                {target.name}
+              </span>
             </span>
-          </div>
+            <span className="inline-flex items-center gap-2 text-cyan-200">
+              <Globe2 className="size-5" />
+              {locationOpen ? (
+                <ChevronUp className="size-4" />
+              ) : (
+                <ChevronDown className="size-4" />
+              )}
+            </span>
+          </button>
 
-          <div className="relative mt-5">
-            <label className="text-xs font-medium uppercase text-slate-400">
-              City
-              <div className="mt-1 flex h-10 items-center gap-2 rounded-md border border-white/10 bg-black/25 px-3 transition focus-within:border-cyan-300/60">
-                <Search className="size-4 shrink-0 text-slate-500" />
-                <input
-                  className="h-full min-w-0 flex-1 bg-transparent text-sm text-white outline-none placeholder:text-slate-500"
-                  disabled={stage !== 'EARTH'}
-                  onBlur={() => setCitySearchOpen(false)}
-                  onChange={(event) => {
-                    setCitySearch(event.target.value)
-                    setCitySearchOpen(true)
-                    setActiveCitySuggestionIndex(0)
-                  }}
-                  onFocus={() => setCitySearchOpen(true)}
-                  onKeyDown={(event) => {
-                    if (event.key === 'ArrowDown') {
-                      event.preventDefault()
-                      setCitySearchOpen(true)
-                      setActiveCitySuggestionIndex((value) =>
-                        citySuggestions.length
-                          ? (value + 1) % citySuggestions.length
-                          : 0,
-                      )
-                    }
-
-                    if (event.key === 'ArrowUp') {
-                      event.preventDefault()
-                      setCitySearchOpen(true)
-                      setActiveCitySuggestionIndex((value) =>
-                        citySuggestions.length
-                          ? (value - 1 + citySuggestions.length) %
+          {locationOpen ? (
+            <div>
+              <div className="relative mt-5">
+                <label className="text-xs font-medium uppercase text-slate-400">
+                  City
+                  <div className="mt-1 flex h-10 items-center gap-2 rounded-md border border-white/10 bg-black/25 px-3 transition focus-within:border-cyan-300/60">
+                    <Search className="size-4 shrink-0 text-slate-500" />
+                    <input
+                      className="h-full min-w-0 flex-1 bg-transparent text-sm text-white outline-none placeholder:text-slate-500"
+                      disabled={stage !== 'EARTH'}
+                      onBlur={() => setCitySearchOpen(false)}
+                      onChange={(event) => {
+                        setCitySearch(event.target.value)
+                        setCitySearchOpen(true)
+                        setActiveCitySuggestionIndex(0)
+                      }}
+                      onFocus={() => setCitySearchOpen(true)}
+                      onKeyDown={(event) => {
+                        if (event.key === 'ArrowDown') {
+                          event.preventDefault()
+                          setCitySearchOpen(true)
+                          setActiveCitySuggestionIndex((value) =>
                             citySuggestions.length
-                          : 0,
-                      )
-                    }
+                              ? (value + 1) % citySuggestions.length
+                              : 0,
+                          )
+                        }
 
-                    if (event.key === 'Enter') {
-                      const selectedLocation =
-                        citySuggestions[activeCitySuggestionIndex] ??
-                        citySuggestions[0]
+                        if (event.key === 'ArrowUp') {
+                          event.preventDefault()
+                          setCitySearchOpen(true)
+                          setActiveCitySuggestionIndex((value) =>
+                            citySuggestions.length
+                              ? (value - 1 + citySuggestions.length) %
+                                citySuggestions.length
+                              : 0,
+                          )
+                        }
 
-                      if (selectedLocation) {
-                        event.preventDefault()
-                        selectLocation(selectedLocation)
-                      }
-                    }
+                        if (event.key === 'Enter') {
+                          const selectedLocation =
+                            citySuggestions[activeCitySuggestionIndex] ??
+                            citySuggestions[0]
 
-                    if (event.key === 'Escape') {
-                      setCitySearchOpen(false)
-                    }
-                  }}
-                  placeholder="Search city"
-                  value={citySearch}
-                />
+                          if (selectedLocation) {
+                            event.preventDefault()
+                            selectLocation(selectedLocation)
+                          }
+                        }
+
+                        if (event.key === 'Escape') {
+                          setCitySearchOpen(false)
+                        }
+                      }}
+                      placeholder="Search city"
+                      value={citySearch}
+                    />
+                  </div>
+                </label>
+
+                {citySearchOpen && citySuggestions.length > 0 ? (
+                  <div className="absolute left-0 right-0 top-full z-20 mt-2 overflow-hidden rounded-md border border-white/12 bg-[#07111f]/96 shadow-2xl shadow-black/35 backdrop-blur-xl">
+                    {citySuggestions.map((location, index) => (
+                      <button
+                        className={`flex h-10 w-full items-center justify-between gap-3 px-3 text-left text-sm text-slate-100 transition hover:bg-cyan-300/10 ${
+                          index === activeCitySuggestionIndex
+                            ? 'bg-cyan-300/12 text-cyan-50'
+                            : ''
+                        }`}
+                        key={`${location.name}-${location.note}-${location.lat}-${location.lon}`}
+                        onMouseDown={(event) => {
+                          event.preventDefault()
+                          selectLocation(location)
+                        }}
+                        onMouseEnter={() =>
+                          setActiveCitySuggestionIndex(index)
+                        }
+                        type="button"
+                      >
+                        <span className="min-w-0 truncate font-medium">
+                          {location.name}
+                        </span>
+                        <span className="shrink-0 text-xs text-slate-400">
+                          {location.note}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
               </div>
-            </label>
 
-            {citySearchOpen && citySuggestions.length > 0 ? (
-              <div className="absolute left-0 right-0 top-full z-20 mt-2 overflow-hidden rounded-md border border-white/12 bg-[#07111f]/96 shadow-2xl shadow-black/35 backdrop-blur-xl">
-                {citySuggestions.map((location, index) => (
-                  <button
-                    className={`flex h-10 w-full items-center justify-between gap-3 px-3 text-left text-sm text-slate-100 transition hover:bg-cyan-300/10 ${
-                      index === activeCitySuggestionIndex
-                        ? 'bg-cyan-300/12 text-cyan-50'
-                        : ''
-                    }`}
-                    key={`${location.name}-${location.note}-${location.lat}-${location.lon}`}
-                    onMouseDown={(event) => {
-                      event.preventDefault()
-                      selectLocation(location)
-                    }}
-                    onMouseEnter={() => setActiveCitySuggestionIndex(index)}
-                    type="button"
-                  >
-                    <span className="min-w-0 truncate font-medium">
-                      {location.name}
-                    </span>
-                    <span className="shrink-0 text-xs text-slate-400">
-                      {location.note}
-                    </span>
-                  </button>
-                ))}
+              <div className="mt-4 grid grid-cols-2 gap-3">
+                <label className="text-xs font-medium uppercase text-slate-400">
+                  Latitude
+                  <input
+                    className="mt-1 h-10 w-full rounded-md border border-white/10 bg-black/25 px-3 text-sm text-white outline-none transition focus:border-cyan-300/60"
+                    disabled={stage !== 'EARTH'}
+                    inputMode="decimal"
+                    onChange={(event) =>
+                      setForm((value) => ({
+                        ...value,
+                        lat: event.target.value,
+                      }))
+                    }
+                    value={form.lat}
+                  />
+                </label>
+                <label className="text-xs font-medium uppercase text-slate-400">
+                  Longitude
+                  <input
+                    className="mt-1 h-10 w-full rounded-md border border-white/10 bg-black/25 px-3 text-sm text-white outline-none transition focus:border-cyan-300/60"
+                    disabled={stage !== 'EARTH'}
+                    inputMode="decimal"
+                    onChange={(event) =>
+                      setForm((value) => ({
+                        ...value,
+                        lon: event.target.value,
+                      }))
+                    }
+                    value={form.lon}
+                  />
+                </label>
               </div>
-            ) : null}
-          </div>
 
-          <div className="mt-4 grid grid-cols-2 gap-3">
-            <label className="text-xs font-medium uppercase text-slate-400">
-              Latitude
-              <input
-                className="mt-1 h-10 w-full rounded-md border border-white/10 bg-black/25 px-3 text-sm text-white outline-none transition focus:border-cyan-300/60"
-                disabled={stage !== 'EARTH'}
-                inputMode="decimal"
-                onChange={(event) =>
-                  setForm((value) => ({ ...value, lat: event.target.value }))
-                }
-                value={form.lat}
-              />
-            </label>
-            <label className="text-xs font-medium uppercase text-slate-400">
-              Longitude
-              <input
-                className="mt-1 h-10 w-full rounded-md border border-white/10 bg-black/25 px-3 text-sm text-white outline-none transition focus:border-cyan-300/60"
-                disabled={stage !== 'EARTH'}
-                inputMode="decimal"
-                onChange={(event) =>
-                  setForm((value) => ({ ...value, lon: event.target.value }))
-                }
-                value={form.lon}
-              />
-            </label>
-          </div>
-
-          <div className="mt-4 flex gap-2">
-            <button
-              className="inline-flex h-11 flex-1 items-center justify-center gap-2 rounded-md bg-cyan-300 px-4 text-sm font-semibold text-slate-950 transition hover:bg-cyan-200 disabled:cursor-not-allowed disabled:bg-slate-500 disabled:text-slate-900"
-              disabled={stage !== 'EARTH'}
-              onClick={showSky}
-              type="button"
-            >
-              <LocateFixed className="size-4" />
-              Show sky
-            </button>
-            <button
-              aria-label="Reset to Earth"
-              className="inline-flex size-11 items-center justify-center rounded-md border border-white/12 bg-white/[0.06] text-slate-100 transition hover:border-cyan-300/45 hover:bg-cyan-300/10"
-              onClick={resetToEarth}
-              type="button"
-            >
-              <RotateCcw className="size-4" />
-            </button>
-          </div>
+              <div className="mt-4 flex gap-2">
+                <button
+                  className="inline-flex h-11 flex-1 items-center justify-center gap-2 rounded-md bg-cyan-300 px-4 text-sm font-semibold text-slate-950 transition hover:bg-cyan-200 disabled:cursor-not-allowed disabled:bg-slate-500 disabled:text-slate-900"
+                  disabled={stage !== 'EARTH'}
+                  onClick={showSky}
+                  type="button"
+                >
+                  <LocateFixed className="size-4" />
+                  Show sky
+                </button>
+                <button
+                  aria-label="Reset to Earth"
+                  className="inline-flex size-11 items-center justify-center rounded-md border border-white/12 bg-white/[0.06] text-slate-100 transition hover:border-cyan-300/45 hover:bg-cyan-300/10"
+                  onClick={resetToEarth}
+                  type="button"
+                >
+                  <RotateCcw className="size-4" />
+                </button>
+              </div>
+            </div>
+          ) : null}
         </motion.aside>
 
         <motion.div
