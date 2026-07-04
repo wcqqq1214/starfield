@@ -112,9 +112,17 @@ const DEEP_SKY_VERTEX_SHADER = `
 
 const DEEP_SKY_FRAGMENT_SHADER = `
   uniform sampler2D uTexture;
+  uniform vec3 uAccent;
   uniform vec3 uTint;
+  uniform float uAlphaHigh;
+  uniform float uAlphaLow;
+  uniform float uColorMaskBoost;
+  uniform float uContrast;
+  uniform float uEdgePower;
+  uniform float uHazeStrength;
   uniform float uIntensity;
-  uniform float uMaskPower;
+  uniform float uOpacity;
+  uniform float uTintMix;
 
   varying vec2 vUv;
 
@@ -122,18 +130,26 @@ const DEEP_SKY_FRAGMENT_SHADER = `
     vec2 point = (vUv - vec2(0.5)) * 2.0;
     float radius = length(point);
     vec4 sampleColor = texture2D(uTexture, vUv);
-    float brightness = max(max(sampleColor.r, sampleColor.g), sampleColor.b);
-    float colorfulness = length(sampleColor.rgb - vec3(dot(sampleColor.rgb, vec3(0.299, 0.587, 0.114))));
-    float imageAlpha = smoothstep(0.035, 0.42, brightness + colorfulness * 0.75);
-    float edgeMask = pow(smoothstep(1.0, 0.0, radius), uMaskPower);
-    float alpha = imageAlpha * edgeMask * uIntensity;
 
-    if (radius > 1.0 || alpha < 0.006) {
+    vec3 gray = vec3(dot(sampleColor.rgb, vec3(0.299, 0.587, 0.114)));
+    vec3 corrected = clamp((sampleColor.rgb - vec3(0.5)) * uContrast + vec3(0.5), 0.0, 1.0);
+    float brightness = max(max(corrected.r, corrected.g), corrected.b);
+    float luminance = dot(corrected, vec3(0.299, 0.587, 0.114));
+    float colorfulness = length(sampleColor.rgb - gray);
+    float maskSignal = brightness + colorfulness * uColorMaskBoost;
+    float imageAlpha = smoothstep(uAlphaLow, uAlphaHigh, maskSignal);
+    float edgeMask = pow(smoothstep(1.0, 0.0, radius), uEdgePower);
+    float hazeAlpha = smoothstep(uAlphaLow * 0.45, uAlphaHigh, luminance) * uHazeStrength * edgeMask;
+    float alpha = max(imageAlpha * edgeMask, hazeAlpha) * uIntensity * uOpacity;
+
+    if (radius > 1.0 || alpha < 0.004) {
       discard;
     }
 
-    vec3 glow = mix(sampleColor.rgb, sampleColor.rgb * uTint, 0.18);
-    glow *= 0.86 + smoothstep(0.58, 1.0, brightness) * 0.48;
+    float accentBlend = smoothstep(0.12, 0.62, colorfulness) * 0.35;
+    vec3 tinted = mix(corrected * uTint, corrected * uAccent, accentBlend);
+    vec3 glow = mix(corrected, tinted, uTintMix);
+    glow *= 0.8 + smoothstep(0.5, 1.0, brightness) * 0.5 + colorfulness * 0.12;
 
     gl_FragColor = vec4(glow, alpha);
   }
@@ -496,20 +512,34 @@ function DeepSkyGlow({ object }: DeepSkyGlowProps) {
 
   const uniforms = useMemo(
     () => ({
+      uAccent: { value: new Color(object.accentColor) },
+      uAlphaHigh: { value: object.renderProfile.alphaHigh },
+      uAlphaLow: { value: object.renderProfile.alphaLow },
+      uColorMaskBoost: { value: object.renderProfile.colorMaskBoost },
+      uContrast: { value: object.renderProfile.contrast },
+      uEdgePower: { value: object.renderProfile.edgePower },
+      uHazeStrength: { value: object.renderProfile.hazeStrength },
       uTexture: { value: texture },
       uTint: { value: new Color(object.color) },
       uIntensity: {
         value: MathUtils.lerp(0.38, object.glowStrength, horizonFade),
       },
-      uMaskPower: {
-        value: getDeepSkyMaskPower(object.visualStyle),
-      },
+      uOpacity: { value: object.renderProfile.opacity },
+      uTintMix: { value: object.renderProfile.tintMix },
     }),
     [
+      object.accentColor,
       horizonFade,
       object.color,
       object.glowStrength,
-      object.visualStyle,
+      object.renderProfile.alphaHigh,
+      object.renderProfile.alphaLow,
+      object.renderProfile.colorMaskBoost,
+      object.renderProfile.contrast,
+      object.renderProfile.edgePower,
+      object.renderProfile.hazeStrength,
+      object.renderProfile.opacity,
+      object.renderProfile.tintMix,
       texture,
     ],
   )
@@ -520,8 +550,10 @@ function DeepSkyGlow({ object }: DeepSkyGlowProps) {
         <planeGeometry args={[2, 2, 1, 1]} />
         <shaderMaterial
           blending={AdditiveBlending}
+          depthTest={false}
           depthWrite={false}
           fragmentShader={DEEP_SKY_FRAGMENT_SHADER}
+          toneMapped={false}
           transparent
           uniforms={uniforms}
           vertexShader={DEEP_SKY_VERTEX_SHADER}
@@ -529,10 +561,6 @@ function DeepSkyGlow({ object }: DeepSkyGlowProps) {
       </mesh>
     </group>
   )
-}
-
-function getDeepSkyMaskPower(style: DeepSkyObject['visualStyle']): number {
-  return style === 'galaxy' ? 0.8 : style === 'reflection' ? 1.15 : 1.55
 }
 
 type PlanisphereStarFieldProps = {
@@ -658,7 +686,10 @@ function getDeepSkySize(object: HorizonDeepSkyObject): number {
   const angularRank = MathUtils.clamp(object.angularSizeArcMin / 120, 0, 1)
   const brightnessRank = MathUtils.clamp((9.4 - object.magnitude) / 8, 0, 1)
 
-  return MathUtils.lerp(0.12, 0.34, Math.max(angularRank, brightnessRank * 0.7))
+  return (
+    MathUtils.lerp(0.12, 0.34, Math.max(angularRank, brightnessRank * 0.7)) *
+    object.renderProfile.sizeScale
+  )
 }
 
 function applyPlanisphereCamera(camera: Camera) {
