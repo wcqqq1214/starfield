@@ -4,3 +4,30 @@ File: earth_noClouds.0330.jpg
 Source page: https://svs.gsfc.nasa.gov/3615/
 Direct asset: https://svs.gsfc.nasa.gov/vis/a000000/a003600/a003615/earth_noClouds.0330.jpg
 Credit: NASA/Goddard Space Flight Center Scientific Visualization Studio. Blue Marble Next Generation data courtesy of Reto Stockli (NASA/GSFC) and NASA Earth Observatory.
+
+NASA deep-sky image sources
+
+Files:
+- deep-sky/m13-hercules.webp
+  Source page: https://science.nasa.gov/mission/hubble/science/explore-the-night-sky/hubble-messier-catalog/messier-13/
+  Direct asset: https://assets.science.nasa.gov/content/dam/science/missions/hubble/stars/globular-clusters/Hubble_M13_2010_potw1011a.jpg/jcr:content/renditions/cq5dam.web.1280.1280.jpeg
+- deep-sky/m27-dumbbell.webp
+  Source page: https://science.nasa.gov/image-detail/close-up-of-m27-the-dumbbell-nebula/
+  Direct asset: https://science.nasa.gov/wp-content/uploads/2023/04/opo0306a-jpg.webp
+- deep-sky/m31-andromeda.webp
+  Source page: https://science.nasa.gov/mission/hubble/science/explore-the-night-sky/hubble-messier-catalog/messier-31/
+  Direct asset: https://science.nasa.gov/wp-content/uploads/2023/04/hs-2015-02-a-hires_jpg-jpg.webp
+- deep-sky/m42-orion.webp
+  Source page: https://science.nasa.gov/mission/hubble/science/explore-the-night-sky/hubble-messier-catalog/messier-42/
+  Direct asset: https://science.nasa.gov/wp-content/uploads/2023/04/orion-nebula-xlarge_web-jpg.webp
+- deep-sky/m45-pleiades.webp
+  Source page: https://science.nasa.gov/mission/hubble/science/explore-the-night-sky/hubble-messier-catalog/messier-45/
+  Direct asset: https://science.nasa.gov/wp-content/uploads/2023/04/interstellar_cloud_in_pleiades-jpg.webp
+- deep-sky/m57-ring.webp
+  Source page: https://science.nasa.gov/image-detail/ring-nebula-full_jpg/
+  Direct asset: https://science.nasa.gov/wp-content/uploads/2023/04/ring-nebula-full_jpg-jpg.webp
+- deep-sky/m8-lagoon.webp
+  Source page: https://science.nasa.gov/mission/hubble/science/explore-the-night-sky/hubble-messier-catalog/messier-8/
+  Direct asset: https://assets.science.nasa.gov/content/dam/science/missions/hubble/nebulae/emission/Hubble_M8_ACS_1_flat_FINAL.jpg/jcr:content/renditions/cq5dam.web.1280.1280.jpeg
+
+Credit: NASA, ESA, and the Hubble Heritage Team where applicable; see each NASA source page for object-specific credits.

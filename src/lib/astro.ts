@@ -1,5 +1,4 @@
 import { SiderealTime } from 'astronomy-engine'
-import { MathUtils } from 'three'
 import type { CatalogStar } from './celestialCatalog'
 import type { LocationTarget } from '../types'
 
@@ -13,13 +12,43 @@ export type HorizonStar = CatalogStar & {
   visible: boolean
 }
 
-type HorizontalPoint = {
+export type EquatorialCoordinates = {
+  raDeg: number
+  decDeg: number
+}
+
+export type HorizontalPoint = {
   altitude: number
   azimuth: number
 }
 
-type HorizonProjector = {
-  toHorizontal: (raDeg: number, decDeg: number) => HorizontalPoint
+export type HorizonObject<TObject extends EquatorialCoordinates> = TObject & {
+  altitude: number
+  azimuth: number
+  visible: boolean
+}
+
+export type HorizonProjector = {
+  toHorizontal: (coordinates: EquatorialCoordinates) => HorizontalPoint
+}
+
+export function computeHorizonObjects<TObject extends EquatorialCoordinates>(
+  location: Pick<LocationTarget, 'lat' | 'lon'>,
+  utcDate: Date,
+  objects: readonly TObject[],
+): HorizonObject<TObject>[] {
+  const projector = createHorizonProjector(location, utcDate)
+
+  return objects.map((object) => {
+    const horizontal = projector.toHorizontal(object)
+
+    return {
+      ...object,
+      altitude: horizontal.altitude,
+      azimuth: horizontal.azimuth,
+      visible: horizontal.altitude > 0,
+    }
+  })
 }
 
 export function computeHorizonStars(
@@ -27,18 +56,12 @@ export function computeHorizonStars(
   utcDate: Date,
   stars: readonly CatalogStar[],
 ): HorizonStar[] {
-  const projector = createHorizonProjector(location, utcDate)
-
-  return stars.map((star) => {
-    const horizontal = projector.toHorizontal(star.raDeg, star.decDeg)
-    const brightness = MathUtils.clamp(2.4 - star.magnitude, 0.25, 4.2)
+  return computeHorizonObjects(location, utcDate, stars).map((star) => {
+    const brightness = clamp(2.4 - star.magnitude, 0.25, 4.2)
 
     return {
       ...star,
-      altitude: horizontal.altitude,
-      azimuth: horizontal.azimuth,
       brightness,
-      visible: horizontal.altitude > 0,
     }
   }).sort((a, b) => {
     if (a.visible !== b.visible) {
@@ -49,7 +72,7 @@ export function computeHorizonStars(
   })
 }
 
-function createHorizonProjector(
+export function createHorizonProjector(
   location: Pick<LocationTarget, 'lat' | 'lon'>,
   utcDate: Date,
 ): HorizonProjector {
@@ -61,14 +84,14 @@ function createHorizonProjector(
   )
 
   return {
-    toHorizontal: (raDeg: number, decDeg: number) => {
+    toHorizontal: ({ raDeg, decDeg }) => {
       const hourAngleRad = signedDegrees(localSiderealDeg - raDeg) * DEG_TO_RAD
       const decRad = decDeg * DEG_TO_RAD
       const sinDec = Math.sin(decRad)
       const cosDec = Math.cos(decRad)
       const sinAlt =
         sinDec * sinLat + cosDec * cosLat * Math.cos(hourAngleRad)
-      const altitude = Math.asin(MathUtils.clamp(sinAlt, -1, 1)) * RAD_TO_DEG
+      const altitude = Math.asin(clamp(sinAlt, -1, 1)) * RAD_TO_DEG
       const azimuth =
         Math.atan2(
           -Math.sin(hourAngleRad),
@@ -103,6 +126,10 @@ function signedDegrees(value: number): number {
   const normalized = normalizeDegrees(value)
 
   return normalized > 180 ? normalized - 360 : normalized
+}
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(Math.max(value, min), max)
 }
 
 export function formatUtc(date: Date): string {

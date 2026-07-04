@@ -11,15 +11,16 @@ hemisphere onto a flat planisphere.
 - EARTH: rotating Earth with atmosphere glow and a deep static starfield.
 - DIRECT SKY ENTRY: click a location or enter coordinates, then immediately show
   the local sky without camera descent or flip animation.
-- SKY: fixed flat all-sky chart with true visible star positions. Center is the
-  zenith; the outer edge represents the horizon.
+- SKY: fixed flat all-sky chart with approximate visible star positions and
+  image-backed deep-sky highlights. Center is the zenith; the outer edge
+  represents the horizon.
 
 ## Stack
 
 - React + Vite + TypeScript
 - Three.js + React Three Fiber + Drei
 - astronomy-engine
-- Tailwind CSS + Framer Motion
+- Tailwind CSS
 
 ## Open Source Data And References
 
@@ -29,6 +30,9 @@ hemisphere onto a flat planisphere.
   NASA/Goddard Space Flight Center Scientific Visualization Studio; Blue Marble
   Next Generation data courtesy of Reto Stockli (NASA/GSFC) and NASA Earth
   Observatory.
+- Deep-sky highlight textures are vendored from NASA/Hubble public pages. The
+  compressed WebP copies live in `public/vendor/nasa/deep-sky/`, with per-image
+  source URLs and credits recorded in `public/vendor/nasa/SOURCE.txt`.
 - Runtime star positions and star names are vendored from
   [ofrohn/d3-celestial](https://github.com/ofrohn/d3-celestial), licensed under
   BSD-3-Clause. The copied files live in `public/vendor/d3-celestial/`,

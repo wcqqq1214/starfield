@@ -22,9 +22,15 @@ import {
   type RefObject,
 } from 'react'
 import {
+  computeHorizonObjects,
   computeHorizonStars,
+  type HorizonObject,
   type HorizonStar,
 } from '../lib/astro'
+import {
+  DEEP_SKY_OBJECTS,
+  type DeepSkyObject,
+} from '../data/deepSkyObjects'
 import type { CelestialCatalog } from '../lib/celestialCatalog'
 import {
   EARTH_RADIUS,
@@ -52,6 +58,9 @@ const CAMERA_HOME = new Vector3(0, 1.55, 5.15)
 const SKY_CHART_RADIUS = 3.05
 const SKY_CHART_CAMERA = new Vector3(0, 0, 7)
 const STAR_WHITE = new Color('#f8fbff')
+
+type HorizonDeepSkyObject = HorizonObject<DeepSkyObject>
+type PlanispherePoint = Pick<HorizonStar, 'altitude' | 'azimuth'>
 
 const STAR_VERTEX_SHADER = `
   attribute float aSize;
@@ -86,6 +95,45 @@ const STAR_FRAGMENT_SHADER = `
     }
 
     vec3 glow = vColor * (0.78 + core * 0.9 + halo * 0.34);
+
+    gl_FragColor = vec4(glow, alpha);
+  }
+`
+
+const DEEP_SKY_VERTEX_SHADER = `
+  varying vec2 vUv;
+
+  void main() {
+    vUv = uv;
+
+    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+  }
+`
+
+const DEEP_SKY_FRAGMENT_SHADER = `
+  uniform sampler2D uTexture;
+  uniform vec3 uTint;
+  uniform float uIntensity;
+  uniform float uMaskPower;
+
+  varying vec2 vUv;
+
+  void main() {
+    vec2 point = (vUv - vec2(0.5)) * 2.0;
+    float radius = length(point);
+    vec4 sampleColor = texture2D(uTexture, vUv);
+    float brightness = max(max(sampleColor.r, sampleColor.g), sampleColor.b);
+    float colorfulness = length(sampleColor.rgb - vec3(dot(sampleColor.rgb, vec3(0.299, 0.587, 0.114))));
+    float imageAlpha = smoothstep(0.035, 0.42, brightness + colorfulness * 0.75);
+    float edgeMask = pow(smoothstep(1.0, 0.0, radius), uMaskPower);
+    float alpha = imageAlpha * edgeMask * uIntensity;
+
+    if (radius > 1.0 || alpha < 0.006) {
+      discard;
+    }
+
+    vec3 glow = mix(sampleColor.rgb, sampleColor.rgb * uTint, 0.18);
+    glow *= 0.86 + smoothstep(0.58, 1.0, brightness) * 0.48;
 
     gl_FragColor = vec4(glow, alpha);
   }
@@ -393,15 +441,98 @@ function LocalSky({
       ),
     [activeLocation, catalog.stars, utcDate],
   )
+  const deepSkyObjects = useMemo(
+    () =>
+      computeHorizonObjects(
+        activeLocation,
+        utcDate,
+        DEEP_SKY_OBJECTS,
+      ).filter((object) => object.visible),
+    [activeLocation, utcDate],
+  )
 
   return (
     <group>
+      <PlanisphereDeepSkyLayer objects={deepSkyObjects} />
       <PlanisphereStarField
         highlightedStarId={highlightedStarId}
         stars={stars}
       />
     </group>
   )
+}
+
+type PlanisphereDeepSkyLayerProps = {
+  objects: HorizonDeepSkyObject[]
+}
+
+function PlanisphereDeepSkyLayer({ objects }: PlanisphereDeepSkyLayerProps) {
+  return (
+    <group>
+      {objects.map((object) => (
+        <DeepSkyGlow key={object.id} object={object} />
+      ))}
+    </group>
+  )
+}
+
+type DeepSkyGlowProps = {
+  object: HorizonDeepSkyObject
+}
+
+function DeepSkyGlow({ object }: DeepSkyGlowProps) {
+  const texture = useTexture(object.imagePath)
+  const position = getPlanispherePosition(object)
+  const horizonFade = MathUtils.smoothstep(object.altitude, 0, 18)
+  const size = getDeepSkySize(object)
+  const scale: [number, number, number] =
+    [size * object.aspectRatio, size, 1]
+
+  useEffect(() => {
+    texture.colorSpace = SRGBColorSpace
+    texture.anisotropy = 8
+    texture.needsUpdate = true
+  }, [texture])
+
+  const uniforms = useMemo(
+    () => ({
+      uTexture: { value: texture },
+      uTint: { value: new Color(object.color) },
+      uIntensity: {
+        value: MathUtils.lerp(0.38, object.glowStrength, horizonFade),
+      },
+      uMaskPower: {
+        value: getDeepSkyMaskPower(object.visualStyle),
+      },
+    }),
+    [
+      horizonFade,
+      object.color,
+      object.glowStrength,
+      object.visualStyle,
+      texture,
+    ],
+  )
+
+  return (
+    <group position={[position[0], position[1], 0.02]}>
+      <mesh rotation={[0, 0, MathUtils.degToRad(object.rotationDeg)]} scale={scale}>
+        <planeGeometry args={[2, 2, 1, 1]} />
+        <shaderMaterial
+          blending={AdditiveBlending}
+          depthWrite={false}
+          fragmentShader={DEEP_SKY_FRAGMENT_SHADER}
+          transparent
+          uniforms={uniforms}
+          vertexShader={DEEP_SKY_VERTEX_SHADER}
+        />
+      </mesh>
+    </group>
+  )
+}
+
+function getDeepSkyMaskPower(style: DeepSkyObject['visualStyle']): number {
+  return style === 'galaxy' ? 0.8 : style === 'reflection' ? 1.15 : 1.55
 }
 
 type PlanisphereStarFieldProps = {
@@ -516,11 +647,18 @@ function PlanisphereStarField({
   )
 }
 
-function getPlanispherePosition(star: HorizonStar): [number, number, number] {
-  const radius = ((90 - star.altitude) / 90) * SKY_CHART_RADIUS
-  const azimuth = MathUtils.degToRad(star.azimuth)
+function getPlanispherePosition(point: PlanispherePoint): [number, number, number] {
+  const radius = ((90 - point.altitude) / 90) * SKY_CHART_RADIUS
+  const azimuth = MathUtils.degToRad(point.azimuth)
 
   return [Math.sin(azimuth) * radius, Math.cos(azimuth) * radius, 0]
+}
+
+function getDeepSkySize(object: HorizonDeepSkyObject): number {
+  const angularRank = MathUtils.clamp(object.angularSizeArcMin / 120, 0, 1)
+  const brightnessRank = MathUtils.clamp((9.4 - object.magnitude) / 8, 0, 1)
+
+  return MathUtils.lerp(0.12, 0.34, Math.max(angularRank, brightnessRank * 0.7))
 }
 
 function applyPlanisphereCamera(camera: Camera) {

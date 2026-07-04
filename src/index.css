@@ -33,3 +33,35 @@ button,
 input {
   font: inherit;
 }
+
+.panel-enter-left {
+  animation: panel-enter-left 450ms ease-out both;
+}
+
+.panel-enter-right {
+  animation: panel-enter-right 450ms ease-out 160ms both;
+}
+
+@keyframes panel-enter-left {
+  from {
+    opacity: 0;
+    transform: translateX(-16px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes panel-enter-right {
+  from {
+    opacity: 0;
+    transform: translateX(16px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}

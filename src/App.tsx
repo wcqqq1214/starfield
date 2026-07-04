@@ -1,4 +1,3 @@
-import { motion } from 'framer-motion'
 import {
   ArrowLeft,
   ChevronDown,
@@ -221,11 +220,8 @@ function App() {
       ) : null}
       <section className="pointer-events-none absolute inset-0 grid grid-cols-[360px_1fr_320px] content-start gap-4 p-5">
         {showLocationPanel ? (
-          <motion.aside
-            animate={{ opacity: 1, x: 0 }}
-            className="pointer-events-auto max-w-full self-start rounded-lg border border-white/12 bg-[#07111f]/72 p-4 shadow-2xl shadow-black/30 backdrop-blur-xl"
-            initial={{ opacity: 0, x: -16 }}
-            transition={{ duration: 0.45, ease: 'easeOut' }}
+          <aside
+            className="panel-enter-left pointer-events-auto max-w-full self-start rounded-lg border border-white/12 bg-[#07111f]/72 p-4 shadow-2xl shadow-black/30 backdrop-blur-xl"
           >
           <button
             aria-expanded={locationOpen}
@@ -402,15 +398,12 @@ function App() {
               </div>
             </div>
           ) : null}
-          </motion.aside>
+          </aside>
         ) : null}
 
         {showStarPanel ? (
-          <motion.aside
-            animate={{ opacity: 1, x: 0 }}
-            className="pointer-events-auto col-start-3 self-start rounded-lg border border-white/12 bg-[#07111f]/72 p-4 shadow-2xl shadow-black/30 backdrop-blur-xl"
-            initial={{ opacity: 0, x: 16 }}
-            transition={{ delay: 0.16, duration: 0.45, ease: 'easeOut' }}
+          <aside
+            className="panel-enter-right pointer-events-auto col-start-3 self-start rounded-lg border border-white/12 bg-[#07111f]/72 p-4 shadow-2xl shadow-black/30 backdrop-blur-xl"
           >
             <button
               aria-expanded={starPanelOpen}
@@ -464,7 +457,7 @@ function App() {
                 )}
               </div>
             ) : null}
-          </motion.aside>
+          </aside>
         ) : null}
       </section>
     </main>
