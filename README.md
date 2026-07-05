@@ -2,8 +2,8 @@
 
 [Live demo](https://starfield-9y4.pages.dev)
 
-Starfield is a non-commercial sky exploration prototype that jumps from a
-rotating 3D Earth to a local all-sky view with stars and deep-sky highlights.
+Starfield is a sky exploration prototype that jumps from a rotating 3D Earth to
+a local all-sky view with stars and deep-sky highlights.
 
 The SKY stage uses `astronomy-engine` to convert bright star right ascension and
 declination into altitude/azimuth for the selected latitude, longitude, and
@@ -67,14 +67,3 @@ pnpm ts-type-check
 pnpm lint
 pnpm build
 ```
-
-## Deployment
-
-Production is hosted on Cloudflare Pages:
-
-- URL: https://starfield-9y4.pages.dev
-- Project: `starfield`
-- Production branch: `main`
-
-Pushes to `main` are deployed by the GitHub Actions workflow in
-`.github/workflows/deploy-cloudflare-pages.yml`.

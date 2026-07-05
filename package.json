@@ -2,7 +2,7 @@
   "name": "starfield",
   "private": true,
   "version": "0.0.0",
-  "description": "A non-commercial sky exploration prototype with a 3D Earth, local all-sky chart, and image-backed deep-sky highlights.",
+  "description": "A sky exploration prototype with a 3D Earth, local all-sky chart, and image-backed deep-sky highlights.",
   "type": "module",
   "packageManager": "pnpm@11.9.0",
   "scripts": {
