@@ -60,6 +60,7 @@ const CAMERA_HOME = new Vector3(0, 1.55, 5.15)
 const SKY_CHART_RADIUS = 3.05
 const SKY_CHART_CAMERA = new Vector3(0, 0, 7)
 const STAR_WHITE = new Color('#f8fbff')
+const DEEP_SKY_TEXTURE_PATHS = DEEP_SKY_OBJECTS.map((object) => object.imagePath)
 
 type HorizonDeepSkyObject = HorizonObject<DeepSkyObject>
 type OrientedHorizonDeepSkyObject = HorizonDeepSkyObject & {
@@ -170,6 +171,10 @@ export function StarfieldExperience({
   onStageChange,
   onTargetChange,
 }: StarfieldExperienceProps) {
+  useEffect(() => {
+    useTexture.preload(DEEP_SKY_TEXTURE_PATHS)
+  }, [])
+
   return (
     <Canvas
       camera={{ position: CAMERA_HOME.toArray(), fov: 48, near: 0.01, far: 80 }}
