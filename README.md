@@ -1,5 +1,7 @@
 # Starfield
 
+[Live demo](https://starfield-9y4.pages.dev)
+
 Starfield is a non-commercial sky exploration prototype that jumps from a
 rotating 3D Earth to a local all-sky view with stars and deep-sky highlights.
 
@@ -65,3 +67,14 @@ pnpm ts-type-check
 pnpm lint
 pnpm build
 ```
+
+## Deployment
+
+Production is hosted on Cloudflare Pages:
+
+- URL: https://starfield-9y4.pages.dev
+- Project: `starfield`
+- Production branch: `main`
+
+Pushes to `main` are deployed by the GitHub Actions workflow in
+`.github/workflows/deploy-cloudflare-pages.yml`.
