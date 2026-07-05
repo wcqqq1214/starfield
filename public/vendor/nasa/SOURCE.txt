@@ -5,6 +5,10 @@ Source page: https://svs.gsfc.nasa.gov/3615/
 Direct asset: https://svs.gsfc.nasa.gov/vis/a000000/a003600/a003615/earth_noClouds.0330.jpg
 Credit: NASA/Goddard Space Flight Center Scientific Visualization Studio. Blue Marble Next Generation data courtesy of Reto Stockli (NASA/GSFC) and NASA Earth Observatory.
 
+Usage note
+
+This repository does not claim direct NASA authorization, review, sponsorship, or endorsement. The imagery is included for a non-commercial educational/exploration prototype, with source URLs and credits preserved. It does not include NASA logos, seals, or insignia. NASA media usage guidance says NASA content is generally available for educational or informational use without explicit permission, but each source page remains the authority for any third-party rights or restrictions.
+
 NASA deep-sky image sources
 
 Files:

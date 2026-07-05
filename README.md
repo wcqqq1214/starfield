@@ -24,6 +24,12 @@ hemisphere onto a flat planisphere.
 
 ## Open Source Data And References
 
+- This is a non-commercial educational/exploration prototype. NASA has not
+  reviewed, approved, sponsored, or endorsed this project. NASA/Hubble imagery is
+  used here as source-attributed, publicly available NASA media under NASA's
+  [Images and Media Usage Guidelines](https://www.nasa.gov/nasa-brand-center/images-and-media/).
+  The app does not use NASA logos, seals, or insignia, and per-image source pages
+  remain the authority for any third-party rights or restrictions.
 - Earth texture is vendored from
   [NASA SVS item 3615](https://svs.gsfc.nasa.gov/3615/). The copied no-cloud
   texture lives in `public/vendor/nasa/earth_noClouds.0330.jpg`. Credit:
